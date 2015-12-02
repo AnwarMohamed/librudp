@@ -3,11 +3,11 @@
 ## any manual changes will be erased      
 ##
 ## Debug
-ProjectName            :=client
+ProjectName            :=server
 ConfigurationName      :=Debug
 WorkspacePath          := "/media/Coding/Github/librudp"
-ProjectPath            := "/media/Coding/Github/librudp/client"
-IntermediateDirectory  :=./../build/debug
+ProjectPath            := "/media/Coding/Github/librudp/server"
+IntermediateDirectory  :=./build/debug
 OutDir                 := $(IntermediateDirectory)
 CurrentFileName        :=
 CurrentFilePath        :=
@@ -27,12 +27,12 @@ OutputSwitch           :=-o
 LibraryPathSwitch      :=-L
 PreprocessorSwitch     :=-D
 SourceSwitch           :=-c 
-OutputFile             :=./../rudp-client
+OutputFile             :=./../rudp-server
 Preprocessors          :=
 ObjectSwitch           :=-o 
 ArchiveOutputSwitch    := 
 PreprocessOnlySwitch   :=-E
-ObjectsFileList        :="client.txt"
+ObjectsFileList        :="server.txt"
 PCHCompileFlags        :=
 MakeDirCommand         :=mkdir -p
 LinkOptions            :=  
@@ -72,30 +72,18 @@ Objects=$(Objects0)
 .PHONY: all clean PreBuild PrePreBuild PostBuild MakeIntermediateDirs
 all: $(OutputFile)
 
-$(OutputFile): $(IntermediateDirectory)/.d "../.build-debug/librudp" "../.build-debug/server" $(Objects) 
+$(OutputFile): $(IntermediateDirectory)/.d $(Objects) 
 	@$(MakeDirCommand) $(@D)
 	@echo "" > $(IntermediateDirectory)/.d
 	@echo $(Objects0)  > $(ObjectsFileList)
 	$(LinkerName) $(OutputSwitch)$(OutputFile) @$(ObjectsFileList) $(LibPath) $(Libs) $(LinkOptions)
 
-"../.build-debug/librudp":
-	@$(MakeDirCommand) "../.build-debug"
-	@echo stam > "../.build-debug/librudp"
-
-
-"../.build-debug/server":
-	@$(MakeDirCommand) "../.build-debug"
-	@echo stam > "../.build-debug/server"
-
-
-
-
 MakeIntermediateDirs:
-	@test -d ./../build/debug || $(MakeDirCommand) ./../build/debug
+	@test -d ./build/debug || $(MakeDirCommand) ./build/debug
 
 
 $(IntermediateDirectory)/.d:
-	@test -d ./../build/debug || $(MakeDirCommand) ./../build/debug
+	@test -d ./build/debug || $(MakeDirCommand) ./build/debug
 
 PreBuild:
 
@@ -104,7 +92,7 @@ PreBuild:
 ## Objects
 ##
 $(IntermediateDirectory)/main.c$(ObjectSuffix): main.c $(IntermediateDirectory)/main.c$(DependSuffix)
-	$(CC) $(SourceSwitch) "/media/Coding/Github/librudp/client/main.c" $(CFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/main.c$(ObjectSuffix) $(IncludePath)
+	$(CC) $(SourceSwitch) "/media/Coding/Github/librudp/server/main.c" $(CFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/main.c$(ObjectSuffix) $(IncludePath)
 $(IntermediateDirectory)/main.c$(DependSuffix): main.c
 	@$(CC) $(CFLAGS) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/main.c$(ObjectSuffix) -MF$(IntermediateDirectory)/main.c$(DependSuffix) -MM "main.c"
 
@@ -117,6 +105,6 @@ $(IntermediateDirectory)/main.c$(PreprocessSuffix): main.c
 ## Clean
 ##
 clean:
-	$(RM) -r ./../build/debug/
+	$(RM) -r ./build/debug/
 
 
