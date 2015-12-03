@@ -14,8 +14,9 @@ rudp_socket_t* rudp_socket(
     if (options) {
         rudp_socket_->options = *options;
     } else {
-        rudp_socket_->options.state = STATE_CLOSED;
-        rudp_socket_->options.max_segment_size = 1024;
+        rudp_options_t* options_ = rudp_options();
+        rudp_socket_->options = *options_;
+        free(options_);
     }
     
     if (!rudp_socket_->options.internal) {        
@@ -202,15 +203,19 @@ int32_t rudp_recv_handler(
 {
     rudp_hash_node_t* hash_node;                        
     
+    printf("%s:%d\n", 
+            inet_ntoa(socket->remote_addr.sin_addr), 
+            ntohs(socket->remote_addr.sin_port));    
+    
     HASH_FIND(hh, socket->syn_hash, &socket->remote_addr, 
-            sizeof(rudp_hash_node_t), hash_node);
+            sizeof(struct sockaddr_in), hash_node);
             
     if (hash_node)
         return rudp_channel_handshake(
                 hash_node->value, buffer, buffer_size);
     
     HASH_FIND(hh, socket->accept_hash, &socket->remote_addr, 
-            sizeof(rudp_hash_node_t), hash_node);
+            sizeof(struct sockaddr_in), hash_node);
     
     if (hash_node)
         return rudp_channel_recv_raw(
@@ -225,13 +230,7 @@ int32_t rudp_recv_handler(
     } else {
         printf("rudp_channel_new() failed\n");
         return RUDP_SOCKET_ERROR;
-    }
-    
-    
-    printf("%s:%d: %s", 
-            inet_ntoa(socket->remote_addr.sin_addr), 
-            ntohs(socket->remote_addr.sin_port), 
-            buffer);
+    }    
 }
 
 rudp_socket_t* rudp_accept(
@@ -265,3 +264,16 @@ int32_t rudp_options_get(
     
     return RUDP_SOCKET_SUCCESS;
 }
+
+rudp_options_t* rudp_options()
+{
+    rudp_options_t* options = 
+            (rudp_options_t*) calloc(1, sizeof(rudp_options_t));
+            
+    options->version = 1;
+    options->state = STATE_CLOSED;
+    options->max_segment_size = 1024;
+    
+    return options;
+}
+

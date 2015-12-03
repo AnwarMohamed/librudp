@@ -33,17 +33,15 @@ int main(int argc, char **argv)
     }
     
     rudp_socket_t* client_socket = NULL;;
-    
-    while(1) {
-        client_socket = rudp_accept(server_socket);
         
-        if (!client_socket) {
-            printf("rudp_accept() succeed\n");
-        } else {
-            printf("rudp_accept() failed\n");
-            goto cleanup;               
-        }
-    }
+    client_socket = rudp_accept(server_socket);
+    
+    if (!client_socket) {
+        printf("rudp_accept() succeed\n");
+    } else {
+        printf("rudp_accept() failed\n");
+        goto cleanup;               
+    }    
     
 cleanup:    
     rudp_close(server_socket, 0);

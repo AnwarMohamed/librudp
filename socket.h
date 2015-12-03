@@ -38,13 +38,15 @@
 #include <stdbool.h>
 
 #include "queue.h"
+#include "channel.h"
 #include "uthash/src/uthash.h"
 
 #define RUDP_SOCKET_ERROR          -1
 #define RUDP_SOCKET_SUCCESS        0
 #define RUDP_SOCKET_ACCEPT_SLEEP   5
 
-typedef enum { 
+
+enum rudp_state_t { 
     STATE_LISTEN = 0,
     STATE_SYN_SENT,
     STATE_SYN_RECEIVED,
@@ -56,13 +58,13 @@ typedef enum {
     STATE_LAST_ACK,
     STATE_TIME_WAIT,
     STATE_CLOSED,
-} rudp_state_t;
+} ;
 
-typedef struct {
+struct rudp_options_t {
     bool internal;
     int32_t parent_socket_fd;
     
-    rudp_state_t state;
+    enum rudp_state_t state;
 
     uint8_t version;    
     uint8_t flags;
@@ -80,15 +82,15 @@ typedef struct {
     uint8_t max_auto_reset;
 
     uint32_t identifier;     
-} rudp_options_t;
+};
 
-typedef struct {
+struct rudp_hash_node_t {
     struct sockaddr_in key;
     struct rudp_socket_t* value;
     UT_hash_handle hh;
-} rudp_hash_node_t;
+};
 
-typedef struct {
+struct rudp_socket_t {
     int32_t socket_fd;
     struct sockaddr_in local_addr;
     struct sockaddr_in remote_addr;
@@ -96,19 +98,26 @@ typedef struct {
     queue_t* in_buffer;
     queue_t* out_buffer;
     
-    rudp_hash_node_t* syn_hash;    
-    rudp_hash_node_t* accept_hash;
+    struct rudp_hash_node_t* syn_hash;    
+    struct rudp_hash_node_t* accept_hash;
     
     queue_t* accept_queue;
     
     pthread_t listen_thread;
     
-    rudp_options_t options;
-} rudp_socket_t;
+    struct rudp_options_t options;
+    struct rudp_channel_t channel;
+};
 
-#include "channel.h"
+
+typedef enum rudp_state_t rudp_state_t;
+typedef struct rudp_options_t rudp_options_t;
+typedef struct rudp_socket_t rudp_socket_t;
+typedef struct rudp_hash_node_t rudp_hash_node_t;
 
 rudp_socket_t* rudp_socket(rudp_options_t* options);
+rudp_options_t* rudp_options();
+
 int32_t rudp_close(rudp_socket_t* socket, bool immediately);
 
 int32_t rudp_recv(rudp_socket_t* socket,

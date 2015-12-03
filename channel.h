@@ -19,8 +19,14 @@
 */
 
 #pragma once
-#include "socket.h"
 
+typedef struct rudp_socket_t rudp_socket_t;
+
+struct rudp_channel_t {
+    int i;
+};
+
+#include "socket.h"
 
 rudp_socket_t* rudp_channel_new(rudp_socket_t* socket);
 
