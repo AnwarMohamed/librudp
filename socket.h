@@ -76,8 +76,11 @@ typedef struct {
 rudp_socket_t* rudp_socket(rudp_options_t* options);
 int32_t rudp_close(rudp_socket_t* socket, uint8_t immediately);
 
-int32_t rudp_recv(rudp_socket_t* socket);
-int32_t rudp_send(rudp_socket_t* socket);
+int32_t rudp_recv(rudp_socket_t* socket,
+        uint8_t* buffer, uint32_t buffer_size);
+        
+int32_t rudp_send(rudp_socket_t* socket, 
+        uint8_t* buffer, uint32_t buffer_size);
 
 int32_t rudp_connect(rudp_socket_t* socket, const char* addr, uint16_t port);
 
@@ -92,3 +95,5 @@ rudp_state_t rudp_state(rudp_socket_t* socket);
 
 void rudp_recv_handler(rudp_socket_t* socket, 
         uint8_t* buffer, uint32_t buffer_size);
+        
+int32_t rudp_options_get(rudp_socket_t* socket, rudp_options_t* options);

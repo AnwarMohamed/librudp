@@ -89,14 +89,18 @@ int32_t rudp_close(
 }
 
 int32_t rudp_recv(
-        rudp_socket_t* socket)
+        rudp_socket_t* socket,
+        uint8_t* buffer, 
+        uint32_t buffer_size)
 {
     if (socket->options.state != STATE_ESTABLISHED)
         return RUDP_SOCKET_ERROR;
 }
 
 int32_t rudp_send(
-        rudp_socket_t* socket)
+        rudp_socket_t* socket,
+        uint8_t* buffer, 
+        uint32_t buffer_size)
 {
     if (socket->options.state != STATE_ESTABLISHED)
         return RUDP_SOCKET_ERROR;    
@@ -213,4 +217,17 @@ rudp_state_t rudp_state(
         return RUDP_SOCKET_ERROR;
 
     return socket->options.state;
+}
+
+int32_t rudp_options_get(
+        rudp_socket_t* socket, 
+        rudp_options_t* options)
+{
+    if (!socket || !options)
+        return RUDP_SOCKET_ERROR; 
+
+    memcpy((void*) &socket->options, (void*) options, 
+            sizeof(rudp_options_t));
+    
+    return RUDP_SOCKET_SUCCESS;
 }
