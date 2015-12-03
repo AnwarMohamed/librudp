@@ -28,8 +28,8 @@ int main(int argc, char **argv)
         goto cleanup;
     }    
     
-    uint8_t* send_buffer = "HELLO FROM ANWAR";
-    uint32_t send_buffer_size = strlen(send_buffer) + 1;
+    uint8_t* send_buffer = (uint8_t*) "HELLO FROM ANWAR";
+    uint32_t send_buffer_size = strlen((char*) send_buffer) + 1;
     
     if (rudp_send(socket, send_buffer, send_buffer_size) > 0) {
         printf("rudp_send() succeed\n");

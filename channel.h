@@ -19,20 +19,15 @@
 */
 
 #pragma once
-#include <stdint.h>
-#include <stdlib.h>
-#include "linkedlist.h"
+#include "socket.h"
 
-typedef llist_t queue_t;
-typedef llist_node_t queue_node_t;
+rudp_socket_t* rudp_channel_new(rudp_socket_t* socket);
 
-queue_t* queue_init();
-void queue_free(queue_t* queue, uint8_t data);
+int32_t rudp_channel_send(rudp_socket_t* socket, 
+        uint8_t* buffer, uint32_t buffer_size);
+        
+int32_t rudp_channel_recv(rudp_socket_t* socket, 
+        uint8_t* buffer, uint32_t buffer_size);
 
-queue_node_t* queue_enqueue(queue_t* queue, void* data);
-queue_node_t* queue_dequeue(queue_t* queue);
-
-uint8_t queue_empty(queue_t* queue);
-uint32_t queue_size(queue_t* queue);
-
-void queue_lock_size(queue_t* queue);
+int32_t rudp_channel_close(rudp_socket_t* socket);
+int32_t rudp_channel_free(rudp_socket_t* socket);

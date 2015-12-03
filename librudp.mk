@@ -60,7 +60,7 @@ AS       := /usr/bin/as
 ## User defined environment variables
 ##
 CodeLiteDir:=/usr/share/codelite
-Objects0=$(IntermediateDirectory)/socket.c$(ObjectSuffix) $(IntermediateDirectory)/linkedlist.c$(ObjectSuffix) $(IntermediateDirectory)/queue.c$(ObjectSuffix) 
+Objects0=$(IntermediateDirectory)/socket.c$(ObjectSuffix) $(IntermediateDirectory)/linkedlist.c$(ObjectSuffix) $(IntermediateDirectory)/queue.c$(ObjectSuffix) $(IntermediateDirectory)/channel.c$(ObjectSuffix) 
 
 
 
@@ -116,6 +116,14 @@ $(IntermediateDirectory)/queue.c$(DependSuffix): queue.c
 
 $(IntermediateDirectory)/queue.c$(PreprocessSuffix): queue.c
 	@$(CC) $(CFLAGS) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/queue.c$(PreprocessSuffix) "queue.c"
+
+$(IntermediateDirectory)/channel.c$(ObjectSuffix): channel.c $(IntermediateDirectory)/channel.c$(DependSuffix)
+	$(CC) $(SourceSwitch) "/media/Coding/Github/librudp/channel.c" $(CFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/channel.c$(ObjectSuffix) $(IncludePath)
+$(IntermediateDirectory)/channel.c$(DependSuffix): channel.c
+	@$(CC) $(CFLAGS) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/channel.c$(ObjectSuffix) -MF$(IntermediateDirectory)/channel.c$(DependSuffix) -MM "channel.c"
+
+$(IntermediateDirectory)/channel.c$(PreprocessSuffix): channel.c
+	@$(CC) $(CFLAGS) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/channel.c$(PreprocessSuffix) "channel.c"
 
 
 -include $(IntermediateDirectory)/*$(DependSuffix)

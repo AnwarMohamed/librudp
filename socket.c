@@ -37,14 +37,6 @@ rudp_socket_t* rudp_socket(
             rudp_close(rudp_socket_, 1);
             return (rudp_socket_t*) RUDP_SOCKET_ERROR;  
         }
-
-        /*
-        flags |= O_NONBLOCK;
-        if (fcntl(rudp_socket_->socket_fd, F_SETFL, flags) < 0) {
-            rudp_close(rudp_socket_);
-            return (rudp_socket_t*) RUDP_SOCKET_ERROR;             
-        }
-        */
     }
     
     if (!(rudp_socket_->in_buffer = queue_init()))
@@ -64,7 +56,7 @@ rudp_socket_t* rudp_socket(
 
 int32_t rudp_close(
         rudp_socket_t* socket,
-        uint8_t immediately) 
+        bool immediately) 
 {
     if (socket) {
         
@@ -95,6 +87,8 @@ int32_t rudp_recv(
 {
     if (socket->options.state != STATE_ESTABLISHED)
         return RUDP_SOCKET_ERROR;
+        
+    return rudp_channel_recv(socket, buffer, buffer_size);
 }
 
 int32_t rudp_send(
@@ -103,7 +97,9 @@ int32_t rudp_send(
         uint32_t buffer_size)
 {
     if (socket->options.state != STATE_ESTABLISHED)
-        return RUDP_SOCKET_ERROR;    
+        return RUDP_SOCKET_ERROR;
+        
+    return rudp_channel_send(socket, buffer, buffer_size);
 }
 
 int32_t rudp_connect(
@@ -112,7 +108,21 @@ int32_t rudp_connect(
         uint16_t port)
 {
     if (socket->options.state != STATE_CLOSED)
-        return RUDP_SOCKET_ERROR;    
+        return RUDP_SOCKET_ERROR;
+
+    int32_t inet_addr_ = inet_addr(addr);
+    
+    if (inet_addr_ == -1) {
+        return RUDP_SOCKET_ERROR;
+    }
+    
+    socket->remote_addr.sin_family = AF_INET;
+    socket->remote_addr.sin_addr.s_addr = inet_addr_;        
+    socket->remote_addr.sin_port = htons(port);
+
+    rudp_socket_t* conn_socket = rudp_channel_new(socket);
+    return conn_socket->options.state == STATE_ESTABLISHED ? 
+            RUDP_SOCKET_SUCCESS : RUDP_SOCKET_ERROR;            
 }
 
 int32_t rudp_bind(
