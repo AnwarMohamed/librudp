@@ -43,10 +43,7 @@ rudp_socket_t* rudp_socket(
         return (rudp_socket_t*) RUDP_SOCKET_ERROR;
         
     if (!(rudp_socket_->out_buffer = queue_init()))
-        return (rudp_socket_t*) RUDP_SOCKET_ERROR;
-        
-    if (!(rudp_socket_->syn_queue = queue_init()))
-        return (rudp_socket_t*) RUDP_SOCKET_ERROR;
+        return (rudp_socket_t*) RUDP_SOCKET_ERROR;        
 
     if (!(rudp_socket_->accept_queue = queue_init()))
         return (rudp_socket_t*) RUDP_SOCKET_ERROR;        
@@ -67,8 +64,7 @@ int32_t rudp_close(
             
         queue_free(socket->in_buffer, 0);
         queue_free(socket->out_buffer, 0);
-        
-        queue_free(socket->syn_queue, 0);
+                
         queue_free(socket->accept_queue, 0);
         
         if (socket->listen_thread)
@@ -199,15 +195,43 @@ cleanup:
     return (void*) RUDP_SOCKET_SUCCESS;
 }
 
-void rudp_recv_handler(
+int32_t rudp_recv_handler(
         rudp_socket_t* socket,
         uint8_t* buffer,
         uint32_t buffer_size) 
 {
-        printf("%s:%d: %s", 
-                inet_ntoa(socket->remote_addr.sin_addr), 
-                ntohs(socket->remote_addr.sin_port), 
-                buffer);
+    rudp_hash_node_t* hash_node;                        
+    
+    HASH_FIND(hh, socket->syn_hash, &socket->remote_addr, 
+            sizeof(rudp_hash_node_t), hash_node);
+            
+    if (hash_node)
+        return rudp_channel_handshake(
+                hash_node->value, buffer, buffer_size);
+    
+    HASH_FIND(hh, socket->accept_hash, &socket->remote_addr, 
+            sizeof(rudp_hash_node_t), hash_node);
+    
+    if (hash_node)
+        return rudp_channel_recv_raw(
+                hash_node->value, buffer, buffer_size);
+
+    rudp_socket_t* internal_socket =  rudp_channel_new(socket);
+    
+    if (internal_socket) {
+        printf("rudp_channel_new() succeed\n");
+        return rudp_channel_recv_raw(
+                internal_socket, buffer, buffer_size);
+    } else {
+        printf("rudp_channel_new() failed\n");
+        return RUDP_SOCKET_ERROR;
+    }
+    
+    
+    printf("%s:%d: %s", 
+            inet_ntoa(socket->remote_addr.sin_addr), 
+            ntohs(socket->remote_addr.sin_port), 
+            buffer);
 }
 
 rudp_socket_t* rudp_accept(

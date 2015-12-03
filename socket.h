@@ -38,6 +38,7 @@
 #include <stdbool.h>
 
 #include "queue.h"
+#include "uthash/src/uthash.h"
 
 #define RUDP_SOCKET_ERROR          -1
 #define RUDP_SOCKET_SUCCESS        0
@@ -82,6 +83,12 @@ typedef struct {
 } rudp_options_t;
 
 typedef struct {
+    struct sockaddr_in key;
+    struct rudp_socket_t* value;
+    UT_hash_handle hh;
+} rudp_hash_node_t;
+
+typedef struct {
     int32_t socket_fd;
     struct sockaddr_in local_addr;
     struct sockaddr_in remote_addr;
@@ -89,7 +96,9 @@ typedef struct {
     queue_t* in_buffer;
     queue_t* out_buffer;
     
-    queue_t* syn_queue;
+    rudp_hash_node_t* syn_hash;    
+    rudp_hash_node_t* accept_hash;
+    
     queue_t* accept_queue;
     
     pthread_t listen_thread;
@@ -119,7 +128,7 @@ rudp_socket_t* rudp_accept(rudp_socket_t* socket);
 
 rudp_state_t rudp_state(rudp_socket_t* socket);
 
-void rudp_recv_handler(rudp_socket_t* socket, 
+int32_t rudp_recv_handler(rudp_socket_t* socket, 
         uint8_t* buffer, uint32_t buffer_size);
-        
+
 int32_t rudp_options_get(rudp_socket_t* socket, rudp_options_t* options);
