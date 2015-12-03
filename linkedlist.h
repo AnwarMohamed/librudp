@@ -1,18 +1,20 @@
 #include <stdint.h>
 #include <stdlib.h>
+#include <semaphore.h>
 
 typedef struct llist_node_t llist_node_t;
 
 struct llist_node_t {
     llist_node_t* prev;
     llist_node_t* next;
-    void* data;
+    void* data;    
 };
 
 typedef struct {
     uint32_t size;
+    sem_t size_lock;
     llist_node_t* head;
-    llist_node_t* tail;
+    llist_node_t* tail;    
 } llist_t;
 
 llist_t* llist_init();

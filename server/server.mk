@@ -13,7 +13,7 @@ CurrentFileName        :=
 CurrentFilePath        :=
 CurrentFileFullPath    :=
 User                   :=Anwar Mohamed
-Date                   :=12/02/15
+Date                   :=12/03/15
 CodeLitePath           :="/home/anwarelmakrahy/.codelite"
 LinkerName             :=/usr/bin/g++
 SharedObjectLinkerName :=/usr/bin/g++ -shared -fPIC
@@ -39,8 +39,8 @@ LinkOptions            :=
 IncludePath            :=  $(IncludeSwitch). $(IncludeSwitch). $(IncludeSwitch)./../ 
 IncludePCH             := 
 RcIncludePath          := 
-Libs                   := $(LibrarySwitch)rudp 
-ArLibs                 :=  "rudp" 
+Libs                   := $(LibrarySwitch)rudp $(LibrarySwitch)pthread $(LibrarySwitch)event $(LibrarySwitch)rt 
+ArLibs                 :=  "rudp" "pthread" "event" "rt" 
 LibPath                := $(LibraryPathSwitch). $(LibraryPathSwitch)../ 
 
 ##

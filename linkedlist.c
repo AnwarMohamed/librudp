@@ -2,7 +2,9 @@
 
 llist_t* llist_init() 
 {
-    return (llist_t*) calloc(1, sizeof(llist_t));
+    llist_t* llist_new = (llist_t*) calloc(1, sizeof(llist_t));
+    sem_init(&llist_new->size_lock, 0, 0);
+    return llist_new;
 }
 
 llist_node_t* llist_node_init(
@@ -32,6 +34,7 @@ llist_node_t* llist_insert_head(
     llist->head = llist_node;
     llist->size++;
     
+    sem_post(&llist->size_lock);
     return llist_node;
 }
 
@@ -55,15 +58,18 @@ llist_node_t* llist_insert_tail(
     llist->tail = llist_node;
     llist->size++;
     
+    sem_post(&llist->size_lock);
     return llist_node;
 }
 
 llist_node_t* llist_remove_head(
         llist_t* llist)
 {
-    if (!llist || !llist->size)
-        return NULL;
-        
+    if (!llist)
+        return NULL;        
+    
+    sem_wait(&llist->size_lock);
+    
     llist_node_t* llist_node = llist->head;    
     llist->head = llist_node->next;
     
@@ -85,9 +91,11 @@ llist_node_t* llist_remove_head(
 llist_node_t* llist_remove_tail(
         llist_t* llist)
 {
-    if (!llist || !llist->size)
+    if (!llist)
         return NULL;
         
+    sem_wait(&llist->size_lock);        
+    
     llist_node_t* llist_node = llist->tail;    
     llist->tail = llist_node->prev;
     
@@ -131,6 +139,7 @@ void llist_free(
             
         free(llist_node);
     }
-        
+    
+    sem_destroy(&llist->size_lock);
     free(llist);
 }

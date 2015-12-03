@@ -13,7 +13,7 @@ CurrentFileName        :=
 CurrentFilePath        :=
 CurrentFileFullPath    :=
 User                   :=Anwar Mohamed
-Date                   :=12/02/15
+Date                   :=12/03/15
 CodeLitePath           :="/home/anwarelmakrahy/.codelite"
 LinkerName             :=/usr/bin/g++
 SharedObjectLinkerName :=/usr/bin/g++ -shared -fPIC
@@ -39,8 +39,8 @@ LinkOptions            :=
 IncludePath            :=  $(IncludeSwitch). $(IncludeSwitch). 
 IncludePCH             := 
 RcIncludePath          := 
-Libs                   := 
-ArLibs                 :=  
+Libs                   := $(LibrarySwitch)pthread $(LibrarySwitch)event $(LibrarySwitch)rt 
+ArLibs                 :=  "pthread" "event" "rt" 
 LibPath                := $(LibraryPathSwitch). 
 
 ##
@@ -51,7 +51,7 @@ AR       := /usr/bin/ar rcu
 CXX      := /usr/bin/g++
 CC       := /usr/bin/gcc
 CXXFLAGS :=  -g -std=c11 -fPIC $(Preprocessors)
-CFLAGS   :=  -g -std=c11 -fPIC $(Preprocessors)
+CFLAGS   :=  -g -std=c11 -fPIC -D_BSD_SOURCE $(Preprocessors)
 ASFLAGS  := 
 AS       := /usr/bin/as
 

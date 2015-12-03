@@ -13,3 +13,5 @@ queue_node_t* queue_dequeue(queue_t* queue);
 
 uint8_t queue_empty(queue_t* queue);
 uint32_t queue_size(queue_t* queue);
+
+void queue_lock_size(queue_t* queue);

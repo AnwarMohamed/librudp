@@ -21,7 +21,7 @@ int main(int argc, char **argv)
     }
     
 cleanup:    
-    rudp_close(socket);
+    rudp_close(socket, 0);
     printf("rudp_close() succeed\n");
     
     return 0;
