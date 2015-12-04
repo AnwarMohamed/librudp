@@ -35,6 +35,8 @@ Release/
 .build-release
 build
 
-
 *.project
 *.workspace
+
+rudp-server
+rudp-client
