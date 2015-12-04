@@ -51,7 +51,7 @@ AR       := /usr/bin/ar rcu
 CXX      := /usr/bin/g++
 CC       := /usr/bin/gcc
 CXXFLAGS :=  -g -std=c11 -fPIC $(Preprocessors)
-CFLAGS   :=  -g -std=c11 -fPIC -D_BSD_SOURCE $(Preprocessors)
+CFLAGS   :=  -g -std=c11 -fPIC -D_BSD_SOURCE -D_POSIX_C_SOURCE=199309L -D_XOPEN_SOURCE $(Preprocessors)
 ASFLAGS  := 
 AS       := /usr/bin/as
 
@@ -60,7 +60,7 @@ AS       := /usr/bin/as
 ## User defined environment variables
 ##
 CodeLiteDir:=/usr/share/codelite
-Objects0=$(IntermediateDirectory)/socket.c$(ObjectSuffix) $(IntermediateDirectory)/linkedlist.c$(ObjectSuffix) $(IntermediateDirectory)/queue.c$(ObjectSuffix) $(IntermediateDirectory)/channel.c$(ObjectSuffix) $(IntermediateDirectory)/packet.c$(ObjectSuffix) 
+Objects0=$(IntermediateDirectory)/socket.c$(ObjectSuffix) $(IntermediateDirectory)/linkedlist.c$(ObjectSuffix) $(IntermediateDirectory)/queue.c$(ObjectSuffix) $(IntermediateDirectory)/channel.c$(ObjectSuffix) $(IntermediateDirectory)/packet.c$(ObjectSuffix) $(IntermediateDirectory)/utils.c$(ObjectSuffix) 
 
 
 
@@ -132,6 +132,14 @@ $(IntermediateDirectory)/packet.c$(DependSuffix): packet.c
 
 $(IntermediateDirectory)/packet.c$(PreprocessSuffix): packet.c
 	@$(CC) $(CFLAGS) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/packet.c$(PreprocessSuffix) "packet.c"
+
+$(IntermediateDirectory)/utils.c$(ObjectSuffix): utils.c $(IntermediateDirectory)/utils.c$(DependSuffix)
+	$(CC) $(SourceSwitch) "/media/Coding/Github/librudp/utils.c" $(CFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/utils.c$(ObjectSuffix) $(IncludePath)
+$(IntermediateDirectory)/utils.c$(DependSuffix): utils.c
+	@$(CC) $(CFLAGS) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/utils.c$(ObjectSuffix) -MF$(IntermediateDirectory)/utils.c$(DependSuffix) -MM "utils.c"
+
+$(IntermediateDirectory)/utils.c$(PreprocessSuffix): utils.c
+	@$(CC) $(CFLAGS) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/utils.c$(PreprocessSuffix) "utils.c"
 
 
 -include $(IntermediateDirectory)/*$(DependSuffix)

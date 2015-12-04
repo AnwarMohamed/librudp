@@ -1,5 +1,12 @@
 #include "socket.h"
 
+static void rudp_timer_handler(
+        int signo, 
+        siginfo_t *si, 
+        void *uc) 
+{    
+    rudp_channel_timer_handler(si->si_value.sival_ptr);
+}
 
 rudp_socket_t* rudp_socket(
         rudp_options_t* options)
@@ -49,6 +56,14 @@ rudp_socket_t* rudp_socket(
     if (!(rudp_socket_->accept_queue = queue_init()))
         return (rudp_socket_t*) RUDP_SOCKET_ERROR;        
     
+    struct sigaction sa; 
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_SIGINFO;
+    sa.sa_sigaction = rudp_timer_handler;
+    
+    if(sigaction(SIGRTMAX, &sa, NULL) < 0)
+        return (rudp_socket_t*) RUDP_SOCKET_ERROR;      
+    
     return rudp_socket_;
 }
 
@@ -60,6 +75,9 @@ int32_t rudp_close(
         
         if (!socket->options.internal && socket->socket_fd)
             close(socket->socket_fd);
+        
+        if (socket->channel)
+            rudp_channel_close(socket);
         
         socket->options.state = STATE_CLOSED;            
                 

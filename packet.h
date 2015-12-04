@@ -103,8 +103,9 @@ typedef enum rudp_packet_flag_t rudp_packet_flag_t;
 typedef enum rudp_packet_type_t rudp_packet_type_t;
 
 #define PACKET_HEADER_LENGTH sizeof(rudp_packet_header_t)
-#define SYNPACKET_LENGTH PACKET_HEADER_LENGTH + \
-        sizeof(rudp_syn_packet_header_t)
+#define SYN_PACKET_HEADER_LENGTH sizeof(rudp_syn_packet_header_t)
+#define SYN_PACKET_LENGTH PACKET_HEADER_LENGTH + \
+        SYN_PACKET_HEADER_LENGTH
 
 rudp_packet_t* rudp_packet(rudp_packet_type_t type, 
         rudp_socket_t* socket, uint8_t* buffer, uint32_t buffer_size);
@@ -115,10 +116,11 @@ rudp_packet_t* rudp_packet_from_buffer(rudp_packet_type_t type,
 int32_t rudp_packet_free(rudp_packet_t* packet);
 
 int32_t rudp_packet_add_checksum(rudp_packet_t* packet);
-bool rudp_packet_check_checksum(rudp_packet_t* packet);
+bool rudp_packet_check_checksum(uint8_t* buffer, uint32_t buffer_size);
+uint32_t rudp_packet_checksum(uint8_t* buffer, uint32_t buffer_size);
 
-void rudp_packet_set_header(rudp_packet_t* packet, uint8_t* buffer,
+int32_t rudp_packet_set_header(rudp_packet_t* packet, uint8_t* buffer,
         uint32_t buffer_size);
 
-void rudp_packet_set_syn_header(rudp_socket_t* socket, rudp_packet_t* packet,
+int32_t rudp_packet_set_syn_header(rudp_socket_t* socket, rudp_packet_t* packet,
         uint8_t* buffer, uint32_t buffer_size);

@@ -38,7 +38,6 @@
 #include <stdbool.h>
 
 #include "queue.h"
-#include "channel.h"
 #include "uthash/src/uthash.h"
 
 #define RUDP_SOCKET_ERROR          -1
@@ -62,7 +61,7 @@ enum rudp_state_t {
 
 struct rudp_options_t {
     bool internal;
-    rudp_socket_t* parent;
+    struct rudp_socket_t* parent;
     
     enum rudp_state_t state;
 
@@ -90,6 +89,8 @@ struct rudp_hash_node_t {
     UT_hash_handle hh;
 };
 
+
+
 struct rudp_socket_t {
     int32_t socket_fd;
     struct sockaddr_in local_addr;
@@ -105,9 +106,11 @@ struct rudp_socket_t {
     
     pthread_t listen_thread;
     
-    struct rudp_options_t options;    
+    struct rudp_options_t options; 
+    struct rudp_channel_t *channel;   
 };
 
+#include "channel.h"
 
 typedef enum rudp_state_t rudp_state_t;
 typedef struct rudp_options_t rudp_options_t;
