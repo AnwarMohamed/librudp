@@ -13,7 +13,7 @@ CurrentFileName        :=
 CurrentFilePath        :=
 CurrentFileFullPath    :=
 User                   :=Anwar Mohamed
-Date                   :=12/03/15
+Date                   :=12/04/15
 CodeLitePath           :="/home/anwarelmakrahy/.codelite"
 LinkerName             :=/usr/bin/g++
 SharedObjectLinkerName :=/usr/bin/g++ -shared -fPIC
@@ -60,7 +60,7 @@ AS       := /usr/bin/as
 ## User defined environment variables
 ##
 CodeLiteDir:=/usr/share/codelite
-Objects0=$(IntermediateDirectory)/socket.c$(ObjectSuffix) $(IntermediateDirectory)/linkedlist.c$(ObjectSuffix) $(IntermediateDirectory)/queue.c$(ObjectSuffix) $(IntermediateDirectory)/channel.c$(ObjectSuffix) 
+Objects0=$(IntermediateDirectory)/socket.c$(ObjectSuffix) $(IntermediateDirectory)/linkedlist.c$(ObjectSuffix) $(IntermediateDirectory)/queue.c$(ObjectSuffix) $(IntermediateDirectory)/channel.c$(ObjectSuffix) $(IntermediateDirectory)/packet.c$(ObjectSuffix) 
 
 
 
@@ -124,6 +124,14 @@ $(IntermediateDirectory)/channel.c$(DependSuffix): channel.c
 
 $(IntermediateDirectory)/channel.c$(PreprocessSuffix): channel.c
 	@$(CC) $(CFLAGS) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/channel.c$(PreprocessSuffix) "channel.c"
+
+$(IntermediateDirectory)/packet.c$(ObjectSuffix): packet.c $(IntermediateDirectory)/packet.c$(DependSuffix)
+	$(CC) $(SourceSwitch) "/media/Coding/Github/librudp/packet.c" $(CFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/packet.c$(ObjectSuffix) $(IncludePath)
+$(IntermediateDirectory)/packet.c$(DependSuffix): packet.c
+	@$(CC) $(CFLAGS) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/packet.c$(ObjectSuffix) -MF$(IntermediateDirectory)/packet.c$(DependSuffix) -MM "packet.c"
+
+$(IntermediateDirectory)/packet.c$(PreprocessSuffix): packet.c
+	@$(CC) $(CFLAGS) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/packet.c$(PreprocessSuffix) "packet.c"
 
 
 -include $(IntermediateDirectory)/*$(DependSuffix)

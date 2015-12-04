@@ -5,7 +5,7 @@
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
 *  the Free Software Foundation; either version 2 of the License, or
-*  (at your option) any later version.
+*  any later version.
 *
 *  This program is distributed in the hope that it will be useful,
 *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -62,7 +62,7 @@ enum rudp_state_t {
 
 struct rudp_options_t {
     bool internal;
-    int32_t parent_socket_fd;
+    rudp_socket_t* parent;
     
     enum rudp_state_t state;
 
@@ -105,8 +105,7 @@ struct rudp_socket_t {
     
     pthread_t listen_thread;
     
-    struct rudp_options_t options;
-    struct rudp_channel_t channel;
+    struct rudp_options_t options;    
 };
 
 

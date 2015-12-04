@@ -1,1 +1,1 @@
-./build/debug/socket.c.o ./build/debug/linkedlist.c.o ./build/debug/queue.c.o ./build/debug/channel.c.o
+./build/debug/socket.c.o ./build/debug/linkedlist.c.o ./build/debug/queue.c.o ./build/debug/channel.c.o ./build/debug/packet.c.o

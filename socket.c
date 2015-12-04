@@ -56,13 +56,13 @@ int32_t rudp_close(
         rudp_socket_t* socket,
         bool immediately) 
 {
-    if (socket) {
+    if (socket) {                
         
-        socket->options.state = STATE_CLOSED;
-        
-        if (socket->socket_fd)
+        if (!socket->options.internal && socket->socket_fd)
             close(socket->socket_fd);
-            
+        
+        socket->options.state = STATE_CLOSED;            
+                
         queue_free(socket->in_buffer, 0);
         queue_free(socket->out_buffer, 0);
                 
@@ -117,7 +117,7 @@ int32_t rudp_connect(
     socket->remote_addr.sin_addr.s_addr = inet_addr_;        
     socket->remote_addr.sin_port = htons(port);
 
-    rudp_socket_t* conn_socket = rudp_channel_new(socket);
+    rudp_socket_t* conn_socket = rudp_channel(socket);
     return conn_socket->options.state == STATE_ESTABLISHED ? 
             RUDP_SOCKET_SUCCESS : RUDP_SOCKET_ERROR;            
 }
@@ -183,10 +183,15 @@ void* rudp_listen_handler(
         if (buffer_size < 0) {
             printf("rudp_listen_handler() failed\n");
             goto cleanup;
-        } else if (!buffer_size)
-            continue;            
-        else
-            rudp_recv_handler(rudp_socket, buffer, buffer_size);            
+        } 
+        
+        else if (!buffer_size) {
+            continue;                       
+        } 
+        
+        else {
+            rudp_recv_handler(rudp_socket, buffer, buffer_size);                        
+        }
     }
     
 cleanup:
@@ -221,14 +226,14 @@ int32_t rudp_recv_handler(
         return rudp_channel_recv_raw(
                 hash_node->value, buffer, buffer_size);
 
-    rudp_socket_t* internal_socket =  rudp_channel_new(socket);
+    rudp_socket_t* internal_socket =  rudp_channel(socket);
     
     if (internal_socket) {
-        printf("rudp_channel_new() succeed\n");
+        printf("rudp_channel() succeed\n");
         return rudp_channel_recv_raw(
                 internal_socket, buffer, buffer_size);
     } else {
-        printf("rudp_channel_new() failed\n");
+        printf("rudp_channel() failed\n");
         return RUDP_SOCKET_ERROR;
     }    
 }
