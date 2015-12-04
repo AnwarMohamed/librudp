@@ -51,7 +51,7 @@ AR       := /usr/bin/ar rcu
 CXX      := /usr/bin/g++
 CC       := /usr/bin/gcc
 CXXFLAGS :=  -g -std=c11 -fPIC $(Preprocessors)
-CFLAGS   :=  -g -std=c11 -fPIC -D_BSD_SOURCE -D_POSIX_C_SOURCE=199309L -D_XOPEN_SOURCE $(Preprocessors)
+CFLAGS   :=  -g -std=c11 -fPIC -D_BSD_SOURCE -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE $(Preprocessors)
 ASFLAGS  := 
 AS       := /usr/bin/as
 

@@ -13,6 +13,7 @@ int main(int argc, char **argv)
         return 0;
     }
 
+/*
     if (!rudp_connect(socket, argv[1], atoi(argv[2]))) {
         printf("rudp_connect() succeed\n");
     } else {
@@ -49,7 +50,8 @@ int main(int argc, char **argv)
         printf("rudp_recv() failed\n");
         goto cleanup;
     }    
-    
+*/
+
 cleanup:    
     rudp_close(socket, 0);
     printf("rudp_close() succeed\n");

@@ -89,3 +89,5 @@ void rudp_channel_timer_close(rudp_channel_timer_t* timer);
 
 
 void rudp_channel_timer_handler(rudp_channel_timer_t* timer);
+
+void rudp_channel_deattach_node(rudp_socket_t* socket);

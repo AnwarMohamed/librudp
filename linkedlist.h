@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <semaphore.h>
+#include <stdbool.h>
 
 typedef struct llist_node_t llist_node_t;
 
@@ -39,7 +40,7 @@ typedef struct {
 } llist_t;
 
 llist_t* llist_init();
-void llist_free(llist_t* llist, uint8_t data);
+void llist_free(llist_t* llist, bool free_data);
 
 llist_node_t* llist_node_init(void* data);
 

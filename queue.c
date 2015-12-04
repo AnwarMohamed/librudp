@@ -7,9 +7,9 @@ queue_t* queue_init()
 
 void queue_free(
         queue_t* queue, 
-        uint8_t data)
+        bool  free_data)
 {
-    llist_free(queue, data);
+    llist_free(queue, free_data);
 }
 
 void queue_lock_size(

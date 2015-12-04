@@ -128,13 +128,13 @@ uint32_t llist_size(
 
 void llist_free(
         llist_t* llist, 
-        uint8_t data)
+        bool free_data)
 {
     llist_node_t* llist_node;
     while (llist_size(llist)) {
         llist_node = llist_remove_tail(llist);
         
-        if (data && llist_node->data)
+        if (free_data && llist_node->data)
             free(llist_node->data);
             
         free(llist_node);

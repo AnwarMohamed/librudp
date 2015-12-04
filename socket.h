@@ -36,6 +36,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdbool.h>
+#include <sys/ioctl.h>
 
 #include "queue.h"
 #include "uthash/src/uthash.h"
@@ -43,6 +44,7 @@
 #define RUDP_SOCKET_ERROR          -1
 #define RUDP_SOCKET_SUCCESS        0
 #define RUDP_SOCKET_ACCEPT_SLEEP   5
+#define RUDP_SOCKET_SIGNAL  (SIGRTMAX+SIGRTMIN)/2
 
 
 enum rudp_state_t { 
@@ -107,7 +109,10 @@ struct rudp_socket_t {
     pthread_t listen_thread;
     
     struct rudp_options_t options; 
-    struct rudp_channel_t *channel;   
+    struct rudp_channel_t *channel;
+
+    uint8_t* temp_buffer;
+    uint32_t temp_buffer_size;
 };
 
 #include "channel.h"
@@ -118,6 +123,7 @@ typedef struct rudp_socket_t rudp_socket_t;
 typedef struct rudp_hash_node_t rudp_hash_node_t;
 
 rudp_socket_t* rudp_socket(rudp_options_t* options);
+rudp_socket_t* rudp_linux_socket(rudp_socket_t* socket);
 rudp_options_t* rudp_options();
 
 int32_t rudp_close(rudp_socket_t* socket, bool immediately);
