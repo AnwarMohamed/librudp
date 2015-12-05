@@ -127,14 +127,14 @@ int32_t rudp_channel_handshake(
         
         if (rudp_packet_check_type(buffer, buffer_size) 
                 != PACKET_TYPE_SYN) { goto cleanup; }
-        
-        packet = rudp_packet(PACKET_TYPE_SYN, 0, buffer, buffer_size);
+                
+        packet = rudp_packet(PACKET_TYPE_SYN, socket, buffer, buffer_size);
         
         if (!packet) { goto cleanup; }
 
         rudp_channel_negotiate(
                 socket, &socket->options,
-                ((rudp_syn_packet_t*) packet->buffer)->aux_header);
+                ((rudp_syn_packet_t*) (packet->buffer))->aux_header);
 
         rudp_packet_free(packet);
         
@@ -205,7 +205,7 @@ int32_t rudp_channel_recv_raw(
         uint32_t buffer_size)
 {
     if (socket->options.state == STATE_LISTEN ||
-        socket->options.state == STATE_SYN_SENT) {
+        socket->options.state == STATE_SYN_SENT) {        
         return rudp_channel_handshake(socket, buffer, buffer_size);
     }
     

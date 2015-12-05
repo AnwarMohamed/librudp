@@ -15,7 +15,7 @@ rudp_packet_t* rudp_packet(
         
         packet->buffer_size = PACKET_HEADER_LENGTH;
         packet->buffer = calloc(packet->buffer_size, sizeof(uint8_t));
-        packet->type = type;
+        packet->type = type;                
         
         if (rudp_packet_set_header(packet, buffer, buffer_size) < 0) {
             goto cleanup;
@@ -28,10 +28,19 @@ rudp_packet_t* rudp_packet(
             if (rudp_packet_set_syn_header(
                     socket, packet, buffer, buffer_size) < 0) {
                 goto cleanup;
-            }
-            
-            return packet;
+            }                        
         }
+        
+        switch(type) {
+            case PACKET_TYPE_DATA:
+            case PACKET_TYPE_NULL:
+            case PACKET_TYPE_RESET:
+            case PACKET_TYPE_SYN:
+            case PACKET_TYPE_TCS:
+                packet->needs_ack = true;
+        }
+        
+        return packet;
     }    
     
 cleanup:
@@ -80,12 +89,22 @@ int32_t rudp_packet_set_header(
     rudp_packet_header_t* header = packet->buffer; 
 
     if (buffer) {
-        if (buffer_size < PACKET_HEADER_LENGTH || 
-                packet->type != rudp_packet_check_type(buffer, buffer_size) ||
-                !rudp_packet_check_checksum(buffer, PACKET_HEADER_LENGTH)) {
-            
+        if (buffer_size < PACKET_HEADER_LENGTH) {
             printf("rudp_packet_set_header() failed\n");
             return RUDP_SOCKET_ERROR;
+        }
+        
+        if (packet->type != rudp_packet_check_type(buffer, buffer_size)) {
+            printf("rudp_packet_set_header() failed\n");
+            return RUDP_SOCKET_ERROR;
+        }
+        
+        if (packet->type != PACKET_TYPE_SYN && packet->type != PACKET_TYPE_SYN_ACK) {
+        
+            if (!rudp_packet_check_checksum(buffer, PACKET_HEADER_LENGTH)) {            
+                printf("rudp_packet_set_header() failed\n");
+                return RUDP_SOCKET_ERROR;
+            }
         }
         
         memcpy(packet->buffer, buffer, PACKET_HEADER_LENGTH);
@@ -122,7 +141,8 @@ int32_t rudp_packet_set_header(
         break;
     }
     
-    rudp_packet_add_checksum(packet);
+    rudp_packet_add_checksum(packet);    
+
     
 finish:
     printf("rudp_packet_set_header() succeed\n");
@@ -139,10 +159,13 @@ int32_t rudp_packet_set_syn_header(
             packet->buffer + PACKET_HEADER_LENGTH;
     
     if (buffer) {
-        if (buffer_size < SYN_PACKET_LENGTH ||
-                rudp_packet_check_checksum(buffer, SYN_PACKET_LENGTH)) {
-                    
-            printf("rudp_packet_set_syn_header() failed\n");
+        if (buffer_size < SYN_PACKET_LENGTH) {
+            printf("rudp_packet_set_syn_header() failed 1\n");
+            return RUDP_SOCKET_ERROR;            
+        }
+                
+        if (!rudp_packet_check_checksum(buffer, SYN_PACKET_LENGTH)) {                    
+            printf("rudp_packet_set_syn_header() failed 2\n");
             return RUDP_SOCKET_ERROR;
         }
         
@@ -192,21 +215,56 @@ int32_t rudp_packet_free(
 int32_t rudp_packet_add_checksum(
         rudp_packet_t* packet)
 {
+    rudp_packet_header_t* header = packet->buffer;
     
+    if (packet->type == PACKET_TYPE_SYN ||
+            packet->type == PACKET_TYPE_SYN_ACK) {
+        return (header->checksum = rudp_packet_checksum(
+                packet->buffer, SYN_PACKET_LENGTH));
+    } else {
+        return (header->checksum = rudp_packet_checksum(
+                packet->buffer, PACKET_HEADER_LENGTH));        
+    }
 }
 
-uint32_t rudp_packet_checksum(
+uint16_t rudp_packet_checksum(
         uint8_t* buffer, 
         uint32_t buffer_size)
 {
+    uint16_t* addr_ = (uint16_t*) buffer;
+    uint16_t count_ = buffer_size;
     
+    uint16_t checksum_bkup = addr_[1];   
+    addr_[1] = 0x0;
+
+    register uint32_t sum = 0x0;
+
+    while(count_ > 1)  {
+        sum += * addr_++;
+        count_ -= 2;
+    }
+    
+    if(count_ > 0)
+        sum += * (uint8_t *) addr_;
+
+    while (sum >>16)
+        sum = (sum & 0xffff) + (sum >> 16);
+
+    addr_ = (uint16_t*) buffer;
+    addr_[1] = checksum_bkup;        
+    
+    return (uint16_t) ~sum;    
 }
 
 bool rudp_packet_check_checksum(
         uint8_t* buffer, 
         uint32_t buffer_size)
 {
-    
+    printf("0x%02X == 0x%02X\n", ((uint16_t*) buffer)[1], 
+            rudp_packet_checksum(buffer, buffer_size));
+            
+    return ((uint16_t*) buffer)[1] == 
+            rudp_packet_checksum(buffer, buffer_size);
 }
 
 void rudp_packet_timeout(

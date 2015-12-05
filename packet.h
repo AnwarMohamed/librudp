@@ -61,8 +61,10 @@ enum rudp_packet_type_t {
     PACKET_TYPE_DATA,
     PACKET_TYPE_NULL,
     PACKET_TYPE_RESET,
+    PACKET_TYPE_RESET_ACK,    
     PACKET_TYPE_EACK,
     PACKET_TYPE_TCS,
+    PACKET_TYPE_TCS_ACK,
     PACKET_TYPE_UNKNOWN,
 };
 
@@ -94,6 +96,8 @@ struct rudp_packet_t {
 
     rudp_channel_timer_t* timer_retrans;
     uint8_t counter_retrans;
+    
+    bool needs_ack;
 };
 
 typedef struct rudp_packet_t rudp_packet_t;
@@ -121,7 +125,7 @@ int32_t rudp_packet_free(rudp_packet_t* packet);
 
 int32_t rudp_packet_add_checksum(rudp_packet_t* packet);
 bool rudp_packet_check_checksum(uint8_t* buffer, uint32_t buffer_size);
-uint32_t rudp_packet_checksum(uint8_t* buffer, uint32_t buffer_size);
+uint16_t rudp_packet_checksum(uint8_t* buffer, uint32_t buffer_size);
 
 int32_t rudp_packet_set_header(rudp_packet_t* packet, uint8_t* buffer,
         uint32_t buffer_size);

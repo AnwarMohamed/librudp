@@ -165,6 +165,12 @@ int32_t rudp_connect(
     socket->remote_addr.sin_addr.s_addr = inet_addr_;        
     socket->remote_addr.sin_port = htons(port);
 
+    if(connect(socket->socket_fd, 
+            (struct sockaddr*)&socket->remote_addr, 
+            sizeof(socket->remote_addr)) < 0) {
+        return RUDP_SOCKET_ERROR;
+    }
+
     rudp_socket_t* conn_socket = rudp_channel(socket);
     
     if (!conn_socket) {
@@ -234,7 +240,16 @@ void* rudp_connect_handler(
     client_socket->temp_buffer = (uint8_t*) calloc (
             client_socket->temp_buffer_size, sizeof(uint8_t)); 
             
-            
+    rudp_packet_t* packet = rudp_packet(PACKET_TYPE_SYN, client_socket, 0, 0);
+    
+    if (!packet) {
+        client_socket->options.state = STATE_CLOSED;        
+        sem_post(&client_socket->options.state_lock);
+        
+        pthread_exit(0);
+    }
+    
+    rudp_channel_send_packet(client_socket, packet);
 }
 
 void* rudp_listen_handler(
