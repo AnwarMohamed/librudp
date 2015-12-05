@@ -1,6 +1,8 @@
 #include <stdio.h>
-
 #include "socket.h"
+
+#define HOST    "0.0.0.0"
+#define PORT    1337
 
 int main(int argc, char **argv)
 {
@@ -13,8 +15,8 @@ int main(int argc, char **argv)
         return 0;
     }
 
-/*
-    if (!rudp_connect(socket, argv[1], atoi(argv[2]))) {
+
+    if (!rudp_connect(socket, HOST, PORT)) {
         printf("rudp_connect() succeed\n");
     } else {
         printf("rudp_connect() failed\n");
@@ -50,7 +52,6 @@ int main(int argc, char **argv)
         printf("rudp_recv() failed\n");
         goto cleanup;
     }    
-*/
 
 cleanup:    
     rudp_close(socket, 0);

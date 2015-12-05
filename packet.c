@@ -45,18 +45,31 @@ cleanup:
     return NULL;    
 }
 
-bool rudp_packet_check_type(
-        rudp_packet_type_t type,
-        uint8_t buffer_type_flags)
+rudp_packet_type_t rudp_packet_check_type(
+        uint8_t* buffer,
+        uint32_t buffer_size)
 {
-    switch (buffer_type_flags) {
-    case PACKET_FLAG_SYN:
-        return type == PACKET_TYPE_SYN;        
-    case PACKET_FLAG_ACK | PACKET_FLAG_SYN:
-        return type == PACKET_TYPE_SYN_ACK;    
-    }
-    
-    return false;
+    if (!buffer || buffer_size < PACKET_HEADER_LENGTH)
+        return PACKET_TYPE_UNKNOWN;
+            
+    if (*buffer == PACKET_FLAG_SYN)
+        return PACKET_TYPE_SYN;        
+    else if (*buffer == (PACKET_FLAG_ACK | PACKET_FLAG_SYN))
+        return PACKET_TYPE_SYN_ACK;
+    else if (*buffer == PACKET_FLAG_ACK)
+        return PACKET_TYPE_ACK;
+    else if (*buffer == (PACKET_FLAG_ACK | PACKET_FLAG_DATA))
+        return PACKET_TYPE_DATA;
+    else if (*buffer == (PACKET_FLAG_ACK | PACKET_FLAG_EACK))
+        return PACKET_TYPE_EACK;
+    else if (*buffer == (PACKET_FLAG_ACK | PACKET_FLAG_NUL))
+        return PACKET_TYPE_NULL;
+    else if (*buffer == PACKET_FLAG_RST)
+        return PACKET_TYPE_RESET;
+    else if (*buffer == PACKET_FLAG_TCS)
+        return PACKET_TYPE_TCS;
+    else       
+        return PACKET_TYPE_UNKNOWN;
 }
 
 int32_t rudp_packet_set_header(
@@ -68,7 +81,7 @@ int32_t rudp_packet_set_header(
 
     if (buffer) {
         if (buffer_size < PACKET_HEADER_LENGTH || 
-                !rudp_packet_check_type(packet->type, buffer[0]) ||
+                packet->type != rudp_packet_check_type(buffer, buffer_size) ||
                 !rudp_packet_check_checksum(buffer, PACKET_HEADER_LENGTH)) {
             
             printf("rudp_packet_set_header() failed\n");
@@ -194,4 +207,18 @@ bool rudp_packet_check_checksum(
         uint32_t buffer_size)
 {
     
+}
+
+void rudp_packet_timeout(
+        rudp_channel_timer_t* timer,
+        uint32_t interval)
+{
+    timer->timer_value.it_value.tv_sec = 0;
+    timer->timer_value.it_value.tv_nsec = interval * 1000;
+    timer->timer_value.it_interval.tv_sec = 0;
+    timer->timer_value.it_interval.tv_nsec = 0;
+
+    if (timer_settime(timer->timer, 0, &timer->timer_value, NULL) != 0) {
+        printf("rudp_packet_timeout() failed\n");
+    }
 }

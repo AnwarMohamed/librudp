@@ -43,10 +43,10 @@ typedef struct {
     struct rudp_socket_t* socket;
     timer_t timer;
     struct sigevent* event;
+    struct itimerspec timer_value;
 } rudp_channel_timer_t ;
 
-struct rudp_channel_t{
-    rudp_channel_timer_t* timer_retrans;
+struct rudp_channel_t{    
     rudp_channel_timer_t* timer_null;
     rudp_channel_timer_t* timer_cum_ack;
     rudp_channel_timer_t* timer_trans_state;

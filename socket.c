@@ -21,8 +21,9 @@ rudp_socket_t* rudp_socket(
     if (options) {
         rudp_socket_->options = *options;
     } else {
-        rudp_options_t* options_ = rudp_options();
+        rudp_options_t* options_ = rudp_options();        
         rudp_socket_->options = *options_;
+        sem_init(&rudp_socket_->options.state_lock, 0, 0);
         free(options_);
     }
     
@@ -57,7 +58,7 @@ rudp_socket_t* rudp_socket(
     if(sigaction(RUDP_SOCKET_SIGNAL, &sa, NULL) < 0) {
         rudp_close(rudp_socket_, false);
         return NULL;
-    }
+    }        
     
     return rudp_socket_;
 }
@@ -90,10 +91,14 @@ int32_t rudp_close(
         rudp_socket_t* socket,
         bool immediately) 
 {
-    if (socket) {                                
-        if (!socket->options.internal && socket->socket_fd)
-            close(socket->socket_fd);
-        
+    if (socket) {           
+
+        if (!socket->options.internal) {
+            sem_destroy(&socket->options.state_lock);
+            if (socket->socket_fd)
+                close(socket->socket_fd);
+        }                     
+
         if (socket->channel)
             rudp_channel_close(socket);
         
@@ -104,15 +109,15 @@ int32_t rudp_close(
                 
         queue_free(socket->accept_queue, !immediately);
 
-        if (socket->listen_thread) {
+        if (socket->thread) {
             if (immediately)
-                pthread_kill(socket->listen_thread, SIGINT);
+                pthread_kill(socket->thread, SIGINT);
             else
-                pthread_join(socket->listen_thread, NULL);
+                pthread_join(socket->thread, NULL);
         }
         
         if (socket->temp_buffer)
-            free(socket->temp_buffer);
+            free(socket->temp_buffer);        
         
         free(socket);        
     }
@@ -161,6 +166,19 @@ int32_t rudp_connect(
     socket->remote_addr.sin_port = htons(port);
 
     rudp_socket_t* conn_socket = rudp_channel(socket);
+    
+    if (!conn_socket) {
+        return RUDP_SOCKET_ERROR;
+    }
+    
+    if (pthread_create(&socket->thread, NULL, 
+            rudp_connect_handler, (void*) conn_socket)) {
+        socket->options.state = STATE_CLOSED;
+        return RUDP_SOCKET_ERROR; 
+    }    
+    
+    sem_wait(&socket->options.state_lock);
+    
     return conn_socket->options.state == STATE_ESTABLISHED ? 
             RUDP_SOCKET_SUCCESS : RUDP_SOCKET_ERROR;            
 }
@@ -197,8 +215,8 @@ int32_t rudp_listen(
     
     socket->options.state = STATE_LISTEN;
     
-    if (pthread_create(&socket->listen_thread, NULL, 
-            rudp_listen_handler, (void*) socket)) {
+    if (pthread_create(&socket->thread, NULL, rudp_listen_handler, 
+            (void*) socket)) {
         socket->options.state = STATE_CLOSED;
         return RUDP_SOCKET_ERROR; 
     }        
@@ -206,22 +224,36 @@ int32_t rudp_listen(
     return RUDP_SOCKET_SUCCESS;
 }
 
-void* rudp_listen_handler(
-        void* socket) {
-    rudp_socket_t* rudp_socket = (rudp_socket_t*) socket;     
+void* rudp_connect_handler(
+        void* socket) 
+{
+    rudp_socket_t* client_socket = (rudp_socket_t*) socket;     
     
     uint32_t buffer_size, sockaddr_in_len = sizeof(struct sockaddr_in);
-    rudp_socket->temp_buffer_size = rudp_socket->options.max_segment_size;
-    rudp_socket->temp_buffer = (uint8_t*) calloc (
-            rudp_socket->temp_buffer_size, sizeof(uint8_t));    
+    client_socket->temp_buffer_size = client_socket->options.max_segment_size;
+    client_socket->temp_buffer = (uint8_t*) calloc (
+            client_socket->temp_buffer_size, sizeof(uint8_t)); 
+            
+            
+}
+
+void* rudp_listen_handler(
+        void* socket) 
+{
+    rudp_socket_t* server_socket = (rudp_socket_t*) socket;     
+    
+    uint32_t buffer_size, sockaddr_in_len = sizeof(struct sockaddr_in);
+    server_socket->temp_buffer_size = server_socket->options.max_segment_size;
+    server_socket->temp_buffer = (uint8_t*) calloc (
+            server_socket->temp_buffer_size, sizeof(uint8_t));    
         
-    while(rudp_socket->options.state == STATE_LISTEN) {
+    while(server_socket->options.state == STATE_LISTEN) {
         
-        memset(rudp_socket->temp_buffer, 0, rudp_socket->temp_buffer_size);        
+        memset(server_socket->temp_buffer, 0, server_socket->temp_buffer_size);        
         
-        buffer_size = recvfrom(rudp_socket->socket_fd, 
-                rudp_socket->temp_buffer, rudp_socket->temp_buffer_size, 0, 
-                (struct sockaddr *) &rudp_socket->remote_addr, 
+        buffer_size = recvfrom(server_socket->socket_fd, 
+                server_socket->temp_buffer, server_socket->temp_buffer_size, 0, 
+                (struct sockaddr *) &server_socket->remote_addr, 
                 &sockaddr_in_len);
         
         if (buffer_size < 0) {
@@ -234,8 +266,8 @@ void* rudp_listen_handler(
         } 
         
         else {
-            rudp_recv_handler(rudp_socket, 
-                    rudp_socket->temp_buffer, buffer_size);
+            rudp_recv_handler(server_socket, 
+                    server_socket->temp_buffer, buffer_size);
         }
     }
     
@@ -287,6 +319,8 @@ rudp_socket_t* rudp_accept(
 {
     if (!socket || socket->options.state != STATE_LISTEN)
         return (rudp_socket_t*) RUDP_SOCKET_ERROR;        
+    
+    sem_wait(&socket->options.state_lock);
     
     return (rudp_socket_t*) queue_dequeue(
             socket->accept_queue)->data; 

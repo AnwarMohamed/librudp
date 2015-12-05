@@ -90,7 +90,10 @@ struct rudp_packet_t {
     uint32_t source_addr;
     
     uint16_t destination_port;
-    uint32_t destination_addr;    
+    uint32_t destination_addr;
+
+    rudp_channel_timer_t* timer_retrans;
+    uint8_t counter_retrans;
 };
 
 typedef struct rudp_packet_t rudp_packet_t;
@@ -125,3 +128,8 @@ int32_t rudp_packet_set_header(rudp_packet_t* packet, uint8_t* buffer,
 
 int32_t rudp_packet_set_syn_header(rudp_socket_t* socket, rudp_packet_t* packet,
         uint8_t* buffer, uint32_t buffer_size);
+        
+rudp_packet_type_t rudp_packet_check_type(uint8_t* buffer,uint32_t buffer_size);
+
+
+void rudp_packet_timeout(rudp_channel_timer_t* timer, uint32_t interval);

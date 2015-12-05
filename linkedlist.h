@@ -33,8 +33,7 @@ struct llist_node_t {
 };
 
 typedef struct {
-    uint32_t size;
-    sem_t size_lock;
+    uint32_t size;    
     llist_node_t* head;
     llist_node_t* tail;    
 } llist_t;

@@ -12,16 +12,6 @@ void queue_free(
     llist_free(queue, free_data);
 }
 
-void queue_lock_size(
-        queue_t* queue)
-{
-    int32_t value; 
-    sem_getvalue(&queue->size_lock, &value);
-    
-    if (!value)
-        sem_post(&queue->size_lock);
-}
-
 queue_node_t* queue_enqueue(
         queue_t* queue, 
         void* data)

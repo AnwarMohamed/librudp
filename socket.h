@@ -65,6 +65,7 @@ struct rudp_options_t {
     bool internal;
     struct rudp_socket_t* parent;
     
+    sem_t state_lock;
     enum rudp_state_t state;
 
     uint8_t version;    
@@ -106,7 +107,7 @@ struct rudp_socket_t {
     
     queue_t* accept_queue;
     
-    pthread_t listen_thread;
+    pthread_t thread;
     
     struct rudp_options_t options; 
     struct rudp_channel_t *channel;
@@ -135,6 +136,7 @@ int32_t rudp_send(rudp_socket_t* socket,
         uint8_t* buffer, uint32_t buffer_size);
 
 int32_t rudp_connect(rudp_socket_t* socket, const char* addr, uint16_t port);
+void* rudp_connect_handler(void* socket);
 
 int32_t rudp_bind(rudp_socket_t* socket, const char* addr, uint16_t port);
 

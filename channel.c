@@ -8,7 +8,7 @@ rudp_socket_t* rudp_channel(rudp_socket_t* socket)
     channel->timer_trans_state = rudp_channel_timer(socket);
     channel->timer_cum_ack = rudp_channel_timer(socket);
     channel->timer_null = rudp_channel_timer(socket);
-    channel->timer_retrans = rudp_channel_timer(socket);       
+    //channel->timer_retrans = rudp_channel_timer(socket);       
     
     if (socket->options.state == STATE_LISTEN) {                
         rudp_options_t* internal_options = rudp_options();
@@ -18,6 +18,25 @@ rudp_socket_t* rudp_channel(rudp_socket_t* socket)
         new_socket = rudp_socket(internal_options);
         new_socket->options.state = STATE_LISTEN;
         
+        new_socket->options.flags = socket->options.flags;
+        new_socket->options.max_auto_reset = socket->options.max_auto_reset;
+        new_socket->options.max_cum_ack = socket->options.max_cum_ack;        
+        new_socket->options.timeout_cum_ack = socket->options.timeout_cum_ack;
+        new_socket->options.timeout_null = socket->options.timeout_null;
+        
+        new_socket->options.timeout_retransmission = 
+                socket->options.timeout_retransmission;
+        new_socket->options.timeout_trans_state = 
+                socket->options.timeout_trans_state;        
+        new_socket->options.max_out_segments = 
+                socket->options.max_out_segments;
+        new_socket->options.max_out_sequences = 
+                socket->options.max_out_sequences;
+        new_socket->options.max_retransmissions = 
+                socket->options.max_retransmissions;
+        new_socket->options.max_segment_size = 
+                socket->options.max_segment_size;
+                
         rudp_hash_node_t* hash_node = calloc (1, sizeof(rudp_hash_node_t));
         hash_node->key = socket->remote_addr;
         hash_node->value = new_socket;                
@@ -70,7 +89,7 @@ void rudp_channel_deattach(
 {    
     if (socket->options.state == STATE_LISTEN) { 
         rudp_channel_deattach_node(socket);
-        rudp_close(socket, false);            
+        rudp_close(socket, false);
     }
 }
 
@@ -87,14 +106,14 @@ void rudp_channel_deattach_node(
         free(hash_node);
     }
 
-    HASH_FIND(hh, socket->options.parent->accept_hash, 
-        &socket->remote_addr, sizeof(struct sockaddr_in), 
+    HASH_FIND(hh, socket->options.parent->accept_hash,
+        &socket->remote_addr, sizeof(struct sockaddr_in),
         hash_node);
-        
+
     if (hash_node) {
-        HASH_DELETE(hh, socket->options.parent->accept_hash, hash_node); 
+        HASH_DELETE(hh, socket->options.parent->accept_hash, hash_node);
         free(hash_node);
-    }         
+    }
 }
 
 int32_t rudp_channel_handshake(
@@ -102,31 +121,42 @@ int32_t rudp_channel_handshake(
         uint8_t* buffer, 
         uint32_t buffer_size)
 {
+    rudp_packet_t* packet;
     
-    if (socket->options.state == STATE_LISTEN) {   
-        rudp_packet_t* packet;
+    if (socket->options.state == STATE_LISTEN) {
+        
+        if (rudp_packet_check_type(buffer, buffer_size) 
+                != PACKET_TYPE_SYN) { goto cleanup; }
         
         packet = rudp_packet(PACKET_TYPE_SYN, 0, buffer, buffer_size);
         
-        if (!packet) {
-            rudp_channel_deattach(socket);
-            
-            printf("rudp_channel_recv_raw() failed\n");
-            return RUDP_SOCKET_ERROR;
-        }
-    /*    
+        if (!packet) { goto cleanup; }
+
         rudp_channel_negotiate(
-                socket, 
-                &socket->options.parent->options,
+                socket, &socket->options,
                 ((rudp_syn_packet_t*) packet->buffer)->aux_header);
-        
+
         rudp_packet_free(packet);
         
-        packet = rudp_packet(PACKET_TYPE_SYN_ACK, socket, 0, 0);                
-                
-        rudp_channel_send_packet(socket, packet);        
-    */
-     }    
+        packet = rudp_packet(PACKET_TYPE_SYN_ACK, socket, 0, 0);
+        return rudp_channel_send_packet(socket, packet);
+     }
+     
+     else if (socket->options.state == STATE_SYN_SENT) {        
+        if (rudp_packet_check_type(buffer, buffer_size) != PACKET_TYPE_SYN) {
+            goto cleanup;
+        }         
+     }
+
+     else if (socket->options.state == STATE_SYN_RECEIVED) {        
+        if (rudp_packet_check_type(buffer, buffer_size) != PACKET_TYPE_SYN) {
+            goto cleanup;
+        }         
+     }
+     
+cleanup:
+    rudp_channel_deattach(socket);
+    return RUDP_SOCKET_ERROR;
 }
 
 int32_t rudp_channel_send(
@@ -152,7 +182,9 @@ int32_t rudp_channel_send_packet(
         rudp_socket_t* socket, 
         rudp_packet_t* packet)
 {
-    packet->transmission_time = rudp_timestamp();
+    packet->transmission_time = rudp_timestamp();    
+    queue_enqueue(socket->out_buffer, packet);
+    
     return rudp_channel_send_raw(socket, 
             packet->buffer, packet->buffer_size);
 }
@@ -173,12 +205,16 @@ int32_t rudp_channel_recv_raw(
         uint32_t buffer_size)
 {
     if (socket->options.state == STATE_LISTEN ||
-        socket->options.state == STATE_SYN_SENT)
-        return rudp_channel_handshake(socket, buffer, buffer_size);        
+        socket->options.state == STATE_SYN_SENT) {
+        return rudp_channel_handshake(socket, buffer, buffer_size);
+    }
     
+    else {
+        
+    }
     
     printf("rudp_channel_recv_raw() failed\n");
-    return RUDP_SOCKET_SUCCESS;    
+    return RUDP_SOCKET_ERROR;    
 }
 
 void rudp_channel_negotiate(
@@ -249,7 +285,7 @@ int32_t rudp_channel_close(
 {
     if (socket && socket->channel) {
         
-        rudp_channel_timer_close(socket->channel->timer_retrans);
+        //rudp_channel_timer_close(socket->channel->timer_retrans);
         rudp_channel_timer_close(socket->channel->timer_cum_ack);
         rudp_channel_timer_close(socket->channel->timer_null);
         rudp_channel_timer_close(socket->channel->timer_trans_state);   
