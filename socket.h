@@ -61,13 +61,17 @@ enum rudp_state_t {
     STATE_CLOSED,
 } ;
 
+typedef struct rudp_syn_packet_header_t rudp_conn_options_t;
+
 struct rudp_options_t {
     bool internal;
     struct rudp_socket_t* parent;
     
     sem_t state_lock;
-    enum rudp_state_t state;
-
+    enum rudp_state_t state;    
+    rudp_conn_options_t* conn;
+    
+    /*
     uint8_t version;    
     uint8_t flags;
 
@@ -84,6 +88,7 @@ struct rudp_options_t {
     uint8_t max_auto_reset;
 
     uint32_t identifier;     
+    */ 
 };
 
 struct rudp_hash_node_t {
@@ -91,8 +96,6 @@ struct rudp_hash_node_t {
     struct rudp_socket_t* value;
     UT_hash_handle hh;
 };
-
-
 
 struct rudp_socket_t {
     int32_t socket_fd;
@@ -102,10 +105,10 @@ struct rudp_socket_t {
     queue_t* in_buffer;
     queue_t* out_buffer;
     
-    struct rudp_hash_node_t* syn_hash;    
-    struct rudp_hash_node_t* accept_hash;
+    struct rudp_hash_node_t* waiting_hash;    
+    struct rudp_hash_node_t* established_hash;
     
-    queue_t* accept_queue;
+    queue_t* ready_queue;
     
     pthread_t thread;
     
@@ -118,6 +121,7 @@ struct rudp_socket_t {
 
 #include "channel.h"
 
+typedef struct rudp_syn_packet_header_t rudp_conn_options_t;
 typedef enum rudp_state_t rudp_state_t;
 typedef struct rudp_options_t rudp_options_t;
 typedef struct rudp_socket_t rudp_socket_t;
@@ -125,7 +129,7 @@ typedef struct rudp_hash_node_t rudp_hash_node_t;
 
 rudp_socket_t* rudp_socket(rudp_options_t* options);
 rudp_socket_t* rudp_linux_socket(rudp_socket_t* socket);
-rudp_options_t* rudp_options();
+
 
 int32_t rudp_close(rudp_socket_t* socket, bool immediately);
 
@@ -150,4 +154,6 @@ rudp_state_t rudp_state(rudp_socket_t* socket);
 int32_t rudp_recv_handler(rudp_socket_t* socket, 
         uint8_t* buffer, uint32_t buffer_size);
 
+rudp_options_t* rudp_options();
 int32_t rudp_options_get(rudp_socket_t* socket, rudp_options_t* options);
+void rudp_options_free(rudp_options_t* options);

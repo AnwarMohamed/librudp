@@ -94,10 +94,11 @@ struct rudp_packet_t {
     uint16_t destination_port;
     uint32_t destination_addr;
 
-    rudp_channel_timer_t* timer_retrans;
+    struct rudp_channel_timer_t* timer_retrans;
     uint8_t counter_retrans;
     
-    bool needs_ack;
+    bool needs_ack;    
+    struct rudp_packet_t* ack;
 };
 
 typedef struct rudp_packet_t rudp_packet_t;
@@ -110,13 +111,12 @@ typedef rudp_nul_packet_t rudp_ack_packet_t;
 typedef enum rudp_packet_flag_t rudp_packet_flag_t;
 typedef enum rudp_packet_type_t rudp_packet_type_t;
 
-#define PACKET_HEADER_LENGTH sizeof(rudp_packet_header_t)
+#define BASE_PACKET_LENGTH sizeof(rudp_packet_header_t)
 #define SYN_PACKET_HEADER_LENGTH sizeof(rudp_syn_packet_header_t)
-#define SYN_PACKET_LENGTH PACKET_HEADER_LENGTH + \
+#define SYN_PACKET_LENGTH BASE_PACKET_LENGTH + \
         SYN_PACKET_HEADER_LENGTH
 
-rudp_packet_t* rudp_packet(rudp_packet_type_t type, 
-        rudp_socket_t* socket, uint8_t* buffer, uint32_t buffer_size);
+rudp_packet_t* rudp_packet(rudp_packet_type_t type, rudp_socket_t* socket);
 
 rudp_packet_t* rudp_packet_from_buffer(rudp_packet_type_t type, 
         rudp_socket_t* socket, uint8_t* buffer, uint32_t buffer_size);
@@ -127,13 +127,16 @@ int32_t rudp_packet_add_checksum(rudp_packet_t* packet);
 bool rudp_packet_check_checksum(uint8_t* buffer, uint32_t buffer_size);
 uint16_t rudp_packet_checksum(uint8_t* buffer, uint32_t buffer_size);
 
-int32_t rudp_packet_set_header(rudp_packet_t* packet, uint8_t* buffer,
-        uint32_t buffer_size);
+int32_t rudp_packet_set_header(rudp_packet_t* packet);
 
-int32_t rudp_packet_set_syn_header(rudp_socket_t* socket, rudp_packet_t* packet,
-        uint8_t* buffer, uint32_t buffer_size);
+int32_t rudp_packet_set_syn_header(rudp_socket_t* socket, 
+        rudp_packet_t* packet);
         
-rudp_packet_type_t rudp_packet_check_type(uint8_t* buffer,uint32_t buffer_size);
+rudp_packet_type_t rudp_packet_check_type(uint8_t* buffer, 
+        uint32_t buffer_size);
 
 
 void rudp_packet_timeout(rudp_channel_timer_t* timer, uint32_t interval);
+
+rudp_packet_t* rudp_buffered_packet(rudp_socket_t* socket, 
+        uint8_t* buffer, uint32_t buffer_size);

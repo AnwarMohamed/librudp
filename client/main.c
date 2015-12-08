@@ -41,7 +41,7 @@ int main(int argc, char **argv)
         goto cleanup;
     }
     
-    uint32_t recv_buffer_size = socket_options.max_segment_size;
+    uint32_t recv_buffer_size = socket_options.conn->max_segment_size;
     uint8_t* recv_buffer = (uint8_t*) 
             calloc(recv_buffer_size, sizeof(uint8_t));
     
