@@ -456,7 +456,7 @@ int32_t rudp_channel_recv_raw(
         uint8_t* buffer,
         uint32_t buffer_size)
 {
-    printf("rudp_channel_recv_raw()\n");
+    printf("rudp_channel_recv_raw(): %d\n", *(uint32_t*)(buffer + buffer_size - 4));
     
     rudp_packet_t* packet = rudp_buffered_packet(socket, buffer, buffer_size);    
     

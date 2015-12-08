@@ -6,8 +6,7 @@ rudp_packet_t* rudp_packet(
 {        
     printf("rudp_packet()\n");
     
-    rudp_packet_t* packet = 0;
-    uint8_t* extra_buffer = 0;
+    rudp_packet_t* packet = 0;    
     
     if (!socket) { goto failed; }
     
@@ -113,8 +112,7 @@ int32_t rudp_packet_set_syn_header(
         
     else if (packet->type == PACKET_TYPE_SYN_ACK)
         memcpy(packet->buffer + BASE_PACKET_LENGTH, 
-                socket->options.conn, SYN_PACKET_HEADER_LENGTH);
-        
+                socket->options.conn, SYN_PACKET_HEADER_LENGTH);                    
         //memcpy(socket->options.conn,
         //        packet->buffer + BASE_PACKET_LENGTH, 
         //        SYN_PACKET_HEADER_LENGTH);
@@ -234,8 +232,8 @@ rudp_packet_t* rudp_buffered_packet(
             packet_syn_header->identifier == 0)
             goto failed;
         
-        memcpy(packet_header + BASE_PACKET_LENGTH, 
-                header + BASE_PACKET_LENGTH, 
+        memcpy((uint8_t*) packet_header + BASE_PACKET_LENGTH, 
+                (uint8_t*) header + BASE_PACKET_LENGTH, 
                 SYN_PACKET_HEADER_LENGTH);
     }
     
