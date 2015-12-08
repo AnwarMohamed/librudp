@@ -11,12 +11,12 @@ static void rudp_timer_handler(
 rudp_socket_t* rudp_socket(
         rudp_options_t* options)
 {
+    printf("rudp_socket()\n");
+    
     rudp_socket_t* rudp_socket_ = 
             (rudp_socket_t*) calloc (1, sizeof(rudp_socket_t));
     
-    if (!rudp_socket_) { 
-        return NULL; 
-    }
+    if (!rudp_socket_) { goto failed; }
     
     if (options) {
         rudp_socket_->options = *options;
@@ -29,25 +29,21 @@ rudp_socket_t* rudp_socket(
     
     if (!rudp_socket_->options.internal) {        
         if (!(rudp_socket_ = rudp_linux_socket(rudp_socket_))) {
-            rudp_close(rudp_socket_, false);
-            return NULL;            
+            goto failed;         
         }
     }
     
     if (!(rudp_socket_->in_buffer = queue_init())) {
-        rudp_close(rudp_socket_, false);
-        return NULL;
+        goto failed;
     }
         
         
     if (!(rudp_socket_->out_buffer = queue_init())) {
-        rudp_close(rudp_socket_, false);
-        return NULL;
+        goto failed;
     }
 
     if (!(rudp_socket_->ready_queue = queue_init())) {
-        rudp_close(rudp_socket_, false);
-        return NULL;        
+        goto failed;        
     }        
     
     struct sigaction sa; 
@@ -56,11 +52,15 @@ rudp_socket_t* rudp_socket(
     sa.sa_sigaction = rudp_timer_handler;
     
     if(sigaction(RUDP_SOCKET_SIGNAL, &sa, NULL) < 0) {
-        rudp_close(rudp_socket_, false);
-        return NULL;
+        goto failed;
     }        
-    
+
+    //printf("rudp_socket() succeed\n");
     return rudp_socket_;
+failed:
+    //printf("rudp_socket() failed\n");
+    rudp_close(rudp_socket_, false);
+    return NULL;
 }
 
 rudp_socket_t* rudp_linux_socket(
@@ -171,22 +171,26 @@ int32_t rudp_connect(
         return RUDP_SOCKET_ERROR;
     }
 
-    rudp_socket_t* conn_socket = rudp_channel(socket);
-    
-    if (!conn_socket) {
-        return RUDP_SOCKET_ERROR;
-    }
+    rudp_socket_t* conn_socket = rudp_channel(socket);    
+    if (!conn_socket) { goto failed; }        
     
     if (pthread_create(&socket->thread, NULL, 
             rudp_connect_handler, (void*) conn_socket)) {
-        socket->options.state = STATE_CLOSED;
-        return RUDP_SOCKET_ERROR; 
+        goto failed;
     }    
     
     sem_wait(&socket->options.state_lock);
     
-    return conn_socket->options.state == STATE_ESTABLISHED ? 
-            RUDP_SOCKET_SUCCESS : RUDP_SOCKET_ERROR;            
+    if (conn_socket->options.state != STATE_ESTABLISHED)
+        goto failed;            
+
+succeed:
+    //printf("rudp_connect() succeed\n");
+    return RUDP_SOCKET_SUCCESS;  
+failed:
+    //printf("rudp_connect() failed\n");
+    socket->options.state = STATE_CLOSED;
+    return RUDP_SOCKET_ERROR;           
 }
 
 int32_t rudp_bind(
@@ -292,20 +296,15 @@ int32_t rudp_recv_handler(
 
     rudp_socket_t* internal_socket =  rudp_channel(socket);
     
-    if (internal_socket) {
-        printf("rudp_channel() succeed\n");
-        return rudp_channel_recv_raw(
-                internal_socket, buffer, buffer_size);
-    } else {
-        printf("rudp_channel() failed\n");
-        return RUDP_SOCKET_ERROR;
-    }    
-}
-
-int32_t rudp_channel_start_handshake(
-    rudp_socket_t* socket)
-{
+    if (!internal_socket || rudp_channel_recv_raw(
+            internal_socket, buffer, buffer_size) < 0)    
+        goto failed;    
     
+    printf("rudp_recv_handler() succeed\n");
+    return RUDP_SOCKET_SUCCESS;  
+failed:
+    printf("rudp_recv_handler() failed\n");    
+    return RUDP_SOCKET_ERROR;      
 }
 
 void* rudp_connect_handler(
@@ -402,6 +401,7 @@ rudp_options_t* rudp_options()
     
     options->conn->version = 1;    
     options->conn->max_segment_size = 1024;
+    options->conn->identifier = rudp_random();
     
     return options;
 }

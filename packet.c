@@ -64,7 +64,7 @@ int32_t rudp_packet_set_header(
 {
     printf("rudp_packet_set_header()\n");
     
-    rudp_packet_header_t* header = packet->buffer; 
+    rudp_packet_header_t* header = (rudp_packet_header_t*) packet->buffer; 
     header->header_length = BASE_PACKET_LENGTH;
     
     switch(packet->type) {
@@ -106,21 +106,23 @@ int32_t rudp_packet_set_syn_header(
         rudp_packet_t* packet)
 {   
     printf("rudp_packet_set_syn_header()\n");
-    
+        
     if (packet->type == PACKET_TYPE_SYN)
         memcpy(packet->buffer + BASE_PACKET_LENGTH, 
                 socket->options.conn, SYN_PACKET_HEADER_LENGTH);
         
     else if (packet->type == PACKET_TYPE_SYN_ACK)
-        memcpy(socket->options.conn,
-                packet->buffer + BASE_PACKET_LENGTH, 
-                SYN_PACKET_HEADER_LENGTH);
+        memcpy(packet->buffer + BASE_PACKET_LENGTH, 
+                socket->options.conn, SYN_PACKET_HEADER_LENGTH);
+        
+        //memcpy(socket->options.conn,
+        //        packet->buffer + BASE_PACKET_LENGTH, 
+        //        SYN_PACKET_HEADER_LENGTH);
                 
     else goto failed;
-
+    
     rudp_packet_add_checksum(packet);
 
-succeed:
     printf("rudp_packet_set_syn_header() succeed\n");
     return RUDP_SOCKET_SUCCESS;
 failed:
@@ -137,7 +139,7 @@ int32_t rudp_packet_free(
 int32_t rudp_packet_add_checksum(
         rudp_packet_t* packet)
 {
-    rudp_packet_header_t* header = packet->buffer;
+    rudp_packet_header_t* header = (rudp_packet_header_t*) packet->buffer;
     
     switch (packet->type) {
     case PACKET_TYPE_SYN:
@@ -227,9 +229,9 @@ rudp_packet_t* rudp_buffered_packet(
     memcpy(packet_header, header, BASE_PACKET_LENGTH);
     
     if (type == PACKET_TYPE_SYN || type == PACKET_TYPE_SYN_ACK) {
-        
-        if (packet_syn_header->version != socket->options.conn->version /*||
-            packet_syn_header->identifier == 0*/)
+                
+        if (packet_syn_header->version != socket->options.conn->version ||
+            packet_syn_header->identifier == 0)
             goto failed;
         
         memcpy(packet_header + BASE_PACKET_LENGTH, 

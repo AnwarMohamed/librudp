@@ -39,8 +39,8 @@ LinkOptions            :=
 IncludePath            :=  $(IncludeSwitch). $(IncludeSwitch). 
 IncludePCH             := 
 RcIncludePath          := 
-Libs                   := $(LibrarySwitch)pthread $(LibrarySwitch)event $(LibrarySwitch)rt 
-ArLibs                 :=  "pthread" "event" "rt" 
+Libs                   := $(LibrarySwitch)pthread $(LibrarySwitch)event $(LibrarySwitch)rt $(LibrarySwitch)ssl 
+ArLibs                 :=  "pthread" "event" "rt" "ssl" 
 LibPath                := $(LibraryPathSwitch). 
 
 ##

@@ -82,7 +82,7 @@ enum rudp_packet_flag_t {
 struct rudp_packet_t {
     enum rudp_packet_type_t type;
     
-    void* buffer;
+    uint8_t* buffer;
     int32_t buffer_size;
     
     uint64_t transmission_time;

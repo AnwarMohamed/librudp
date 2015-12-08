@@ -39,6 +39,7 @@
 #include <sys/ioctl.h>
 
 #include "queue.h"
+#include "utils.h"
 #include "uthash/src/uthash.h"
 
 #define RUDP_SOCKET_ERROR          -1

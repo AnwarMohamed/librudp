@@ -33,6 +33,14 @@ rudp_socket_t* rudp_channel(rudp_socket_t* socket)
         rudp_options_free(internal_options);
     } else {
         new_socket = socket;
+        new_socket->options.parent = new_socket;
+        
+        rudp_hash_node_t* hash_node = calloc (1, sizeof(rudp_hash_node_t));
+        hash_node->key = socket->remote_addr;
+        hash_node->value = new_socket;
+
+        HASH_ADD(hh, new_socket->waiting_hash, key, 
+                sizeof(struct sockaddr_in), hash_node);                 
     }
     
     new_socket->local_addr = socket->local_addr;
@@ -113,6 +121,30 @@ void rudp_channel_deattach_node(
     }
 }
 
+int32_t rudp_channel_start_handshake(
+    rudp_socket_t* socket)
+{
+    printf("rudp_channel_start_handshake()\n");        
+    
+    rudp_packet_t* syn_packet = rudp_packet(PACKET_TYPE_SYN, socket);
+    
+    if (!syn_packet) { goto failed; }
+
+    if (rudp_channel_send_packet(socket, syn_packet) < 0) {
+        goto failed;        
+    }
+    
+    socket->options.state = STATE_SYN_SENT;
+    
+    printf("rudp_channel_start_handshake() succeed\n");
+    return RUDP_SOCKET_SUCCESS;  
+failed:
+    printf("rudp_channel_start_handshake() failed\n");
+    
+    rudp_packet_free(syn_packet);
+    return RUDP_SOCKET_ERROR;    
+}
+
 int32_t rudp_channel_handshake(
         rudp_socket_t* socket, 
         uint8_t* buffer, 
@@ -188,18 +220,19 @@ failed:
 }
 
 int32_t rudp_channel_send_ack(
-        rudp_socket_t* socket, 
+        rudp_socket_t* socket,
         rudp_packet_t* packet)
 {
-    printf("rudp_channel_send_ack()\n");
+    printf("rudp_channel_send_ack()\n");    
     
     if (!packet->ack) {
         switch(packet->type) {
         case PACKET_TYPE_SYN:
             packet->ack = rudp_packet(PACKET_TYPE_SYN_ACK, socket);
             break;
-        case PACKET_TYPE_DATA:            
-        case PACKET_TYPE_EACK:            
+        case PACKET_TYPE_SYN_ACK:        
+        case PACKET_TYPE_DATA:
+        case PACKET_TYPE_EACK:
         case PACKET_TYPE_NULL:
             packet->ack = rudp_packet(PACKET_TYPE_ACK, socket);
             break;
@@ -210,20 +243,18 @@ int32_t rudp_channel_send_ack(
             packet->ack = rudp_packet(PACKET_TYPE_TCS_ACK, socket);
             break;
         default:
-            goto failed;
+            goto failed; 
         }
         
-        if (!packet->ack) { goto failed; }
-        
-        if (rudp_channel_send_raw(socket, 
-                packet->ack->buffer, packet->ack->buffer_size) < 0)
-            goto failed;
+        if (!packet->ack) { goto failed; }                        
     }
+    
+    if (rudp_channel_send_packet(socket, packet->ack) < 0)
+        goto failed;   
 
 succeed:
     printf("rudp_channel_send_ack() succeed\n");
-    return rudp_channel_send_raw(socket, 
-            packet->ack->buffer, packet->ack->buffer_size);
+    return RUDP_SOCKET_SUCCESS;
 failed:
     printf("rudp_channel_send_ack() failed\n");
     return RUDP_SOCKET_ERROR;
@@ -234,7 +265,7 @@ int32_t rudp_channel_send_packet(
         rudp_packet_t* packet)
 {
     packet->transmission_time = rudp_timestamp();    
-    queue_enqueue(socket->out_buffer, packet);
+    //queue_enqueue(socket->out_buffer, packet);
     
     return rudp_channel_send_raw(socket, 
             packet->buffer, packet->buffer_size);
@@ -297,7 +328,9 @@ int32_t rudp_channel_recv_syn(
     if (socket->options.state != STATE_LISTEN)
         goto failed;
 
-    rudp_syn_packet_header_t* syn_header =  packet->buffer;    
+    rudp_syn_packet_header_t* syn_header =  
+            (rudp_syn_packet_header_t*) (packet->buffer + BASE_PACKET_LENGTH);
+            
     socket->options.conn->identifier = syn_header->identifier;
     socket->options.conn->option_flags = syn_header->option_flags;
     
@@ -354,6 +387,50 @@ int32_t rudp_channel_recv_syn_ack(
         rudp_socket_t* socket,
         rudp_packet_t* packet)
 {
+    printf("rudp_channel_recv_syn_ack()\n");
+    
+    if (socket->options.state != STATE_SYN_SENT)
+        goto failed;
+
+    rudp_syn_packet_header_t* syn_header =  
+            (rudp_syn_packet_header_t*) (packet->buffer + BASE_PACKET_LENGTH);
+            
+    socket->options.conn->identifier = syn_header->identifier;
+    socket->options.conn->option_flags = syn_header->option_flags;
+    
+    if (syn_header->max_auto_reset > 
+                socket->options.conn->max_auto_reset ||
+        syn_header->max_cum_ack > 
+                socket->options.conn->max_cum_ack ||
+        syn_header->max_out_segments > 
+                socket->options.conn->max_out_segments ||
+        syn_header->max_retransmissions > 
+                socket->options.conn->max_retransmissions ||
+        syn_header->max_out_sequences > 
+                socket->options.conn->max_out_sequences ||
+        syn_header->timeout_cum_ack > 
+                socket->options.conn->timeout_cum_ack ||
+        syn_header->timeout_null > 
+                socket->options.conn->timeout_null ||
+        syn_header->timeout_retransmission > 
+                socket->options.conn->timeout_retransmission ||
+        syn_header->timeout_trans_state > 
+                socket->options.conn->timeout_trans_state) {
+        goto failed;             
+              
+    }
+    
+    if (rudp_channel_send_ack(socket, packet) < 0)
+        goto failed;
+
+    socket->options.state = STATE_ESTABLISHED;
+    
+succeed:   
+    printf("rudp_channel_recv_syn_ack() succeed\n");
+    return RUDP_SOCKET_SUCCESS; 
+failed:    
+    printf("rudp_channel_recv_syn_ack() failed\n");
+    return RUDP_SOCKET_ERROR;    
 }
 
 int32_t rudp_channel_recv_ack(
@@ -438,71 +515,6 @@ failed:
     
     printf("rudp_channel_recv_raw() failed\n");
     return RUDP_SOCKET_ERROR;    
-}
-
-void rudp_channel_negotiate(
-        rudp_socket_t* socket,
-        rudp_options_t* server,
-        rudp_syn_packet_header_t* client)
-{
-    /*
-    socket->options.identifier = client->identifier;
-    socket->options.flags = client->option_flags;
-
-    if (client->max_auto_reset > server->max_auto_reset) {
-        client->max_auto_reset = server->max_auto_reset;                
-    } else {
-        socket->options.max_auto_reset = client->max_auto_reset;
-    }
-             
-    if (client->max_cum_ack > server->max_cum_ack) {
-        client->max_cum_ack = server->max_cum_ack;                
-    } else {
-        socket->options.max_cum_ack = client->max_cum_ack;
-    }
-
-    if (client->max_out_segments > server->max_out_segments) {
-        client->max_out_segments = server->max_out_segments;                
-    } else {
-        socket->options.max_out_segments = client->max_out_segments;
-    }
-
-    if (client->max_retransmissions > server->max_retransmissions) {
-        client->max_retransmissions = server->max_retransmissions;                
-    } else {
-        socket->options.max_retransmissions = client->max_retransmissions;
-    }
-
-    if (client->max_out_sequences > server->max_out_sequences) {
-        client->max_out_sequences = server->max_out_sequences;                
-    } else {
-        socket->options.max_out_sequences = client->max_out_sequences;
-    }
-
-    if (client->timeout_cum_ack > server->timeout_cum_ack) {
-        client->timeout_cum_ack = server->timeout_cum_ack;                
-    } else {
-        socket->options.timeout_cum_ack = client->timeout_cum_ack;
-    }  
-
-    if (client->timeout_null > server->timeout_null) {
-        client->timeout_null = server->timeout_null;                
-    } else {
-        socket->options.timeout_null = client->timeout_null;
-    }   
-
-    if (client->timeout_retransmission > server->timeout_retransmission) {
-        client->timeout_retransmission = server->timeout_retransmission;                
-    } else {
-        socket->options.timeout_retransmission = client->timeout_retransmission;
-    }      
-
-    if (client->timeout_trans_state > server->timeout_trans_state) {
-        client->timeout_trans_state = server->timeout_trans_state;                
-    } else {
-        socket->options.timeout_trans_state = client->timeout_trans_state;
-    }
-    */    
 }
 
 int32_t rudp_channel_close(

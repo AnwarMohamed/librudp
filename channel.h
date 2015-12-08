@@ -118,3 +118,5 @@ int32_t rudp_channel_recv_tcs(
         rudp_socket_t* socket, rudp_packet_t* packet);
 int32_t rudp_channel_recv_tcs_ack(
         rudp_socket_t* socket, rudp_packet_t* packet);
+        
+int32_t rudp_channel_start_handshake(rudp_socket_t* socket);
