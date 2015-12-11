@@ -3,14 +3,14 @@
 #include <unistd.h>
 #include "socket.h"
 
-#define HOST    "0.0.0.0"
+#define HOST    "127.0.0.1"
 #define PORT    1337
 #define BACKLOG 100
 
 rudp_socket_t* server_socket = NULL;
 
 void handle_signal(int signal) {
-    rudp_close(server_socket, true);
+    //rudp_close(server_socket, true);
     exit(0);
 }
 
@@ -23,48 +23,34 @@ int main(int argc, char **argv)
     
     sigfillset(&sa.sa_mask);
     
-    if (sigaction(SIGINT, &sa, NULL) >= 0) {
-        printf("sigaction() succeed\n");
-    } else {
-        printf("sigaction() failed\n");
-        return 0;
-    }    
+    if (sigaction(SIGINT, &sa, 0) < 0) {
+        goto cleanup;
+    }
     
-    if ((server_socket = rudp_socket(NULL))) {
-        printf("rudp_socket() succeed\n");
-    } else {
-        printf("rudp_socket() failed\n");
-        return 0;
+    if (!(server_socket = rudp_socket(0))) {
+        goto cleanup;
     }
 
-    if (!rudp_bind(server_socket, HOST, PORT)) {
-        printf("rudp_bind() succeed\n");
-    } else {
-        printf("rudp_bind() failed\n");
-        goto cleanup;        
+    if (rudp_bind(server_socket, HOST, PORT) < 0) {
+        goto cleanup;
     }
     
-    if (!rudp_listen(server_socket, BACKLOG)) {
-        printf("rudp_listen() succeed\n");
-    } else {
-        printf("rudp_listen() failed\n");
-        goto cleanup;        
+    if (rudp_listen(server_socket, BACKLOG) < 0) {
+        goto cleanup;
     }
-    
+/*    
     rudp_socket_t* client_socket = NULL;;
         
     client_socket = rudp_accept(server_socket);
     
     if (!client_socket) {
-        printf("rudp_accept() succeed\n");
+        //printf("rudp_accept() succeed\n");
     } else {
-        printf("rudp_accept() failed\n");
+        //printf("rudp_accept() failed\n");
         goto cleanup;               
     }    
-
+*/
 cleanup:    
-    rudp_close(server_socket, 0);
-    printf("rudp_close() succeed\n");
-    
+    rudp_close(server_socket, 0);    
     return 0;
 }

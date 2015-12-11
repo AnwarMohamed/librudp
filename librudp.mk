@@ -13,7 +13,7 @@ CurrentFileName        :=
 CurrentFilePath        :=
 CurrentFileFullPath    :=
 User                   :=Anwar Mohamed
-Date                   :=12/08/15
+Date                   :=12/11/15
 CodeLitePath           :="/home/anwarelmakrahy/.codelite"
 LinkerName             :=/usr/bin/g++
 SharedObjectLinkerName :=/usr/bin/g++ -shared -fPIC
@@ -28,7 +28,7 @@ LibraryPathSwitch      :=-L
 PreprocessorSwitch     :=-D
 SourceSwitch           :=-c 
 OutputFile             :=./$(ProjectName).so
-Preprocessors          :=
+Preprocessors          :=$(PreprocessorSwitch)DEBUG_MODE 
 ObjectSwitch           :=-o 
 ArchiveOutputSwitch    := 
 PreprocessOnlySwitch   :=-E
@@ -60,7 +60,7 @@ AS       := /usr/bin/as
 ## User defined environment variables
 ##
 CodeLiteDir:=/usr/share/codelite
-Objects0=$(IntermediateDirectory)/socket.c$(ObjectSuffix) $(IntermediateDirectory)/linkedlist.c$(ObjectSuffix) $(IntermediateDirectory)/queue.c$(ObjectSuffix) $(IntermediateDirectory)/channel.c$(ObjectSuffix) $(IntermediateDirectory)/packet.c$(ObjectSuffix) $(IntermediateDirectory)/utils.c$(ObjectSuffix) 
+Objects0=$(IntermediateDirectory)/socket.c$(ObjectSuffix) $(IntermediateDirectory)/linkedlist.c$(ObjectSuffix) $(IntermediateDirectory)/queue.c$(ObjectSuffix) $(IntermediateDirectory)/channel.c$(ObjectSuffix) $(IntermediateDirectory)/packet.c$(ObjectSuffix) $(IntermediateDirectory)/utils.c$(ObjectSuffix) $(IntermediateDirectory)/window.c$(ObjectSuffix) 
 
 
 
@@ -140,6 +140,14 @@ $(IntermediateDirectory)/utils.c$(DependSuffix): utils.c
 
 $(IntermediateDirectory)/utils.c$(PreprocessSuffix): utils.c
 	@$(CC) $(CFLAGS) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/utils.c$(PreprocessSuffix) "utils.c"
+
+$(IntermediateDirectory)/window.c$(ObjectSuffix): window.c $(IntermediateDirectory)/window.c$(DependSuffix)
+	$(CC) $(SourceSwitch) "/media/Coding/Github/librudp/window.c" $(CFLAGS) $(ObjectSwitch)$(IntermediateDirectory)/window.c$(ObjectSuffix) $(IncludePath)
+$(IntermediateDirectory)/window.c$(DependSuffix): window.c
+	@$(CC) $(CFLAGS) $(IncludePath) -MG -MP -MT$(IntermediateDirectory)/window.c$(ObjectSuffix) -MF$(IntermediateDirectory)/window.c$(DependSuffix) -MM "window.c"
+
+$(IntermediateDirectory)/window.c$(PreprocessSuffix): window.c
+	@$(CC) $(CFLAGS) $(IncludePath) $(PreprocessOnlySwitch) $(OutputSwitch) $(IntermediateDirectory)/window.c$(PreprocessSuffix) "window.c"
 
 
 -include $(IntermediateDirectory)/*$(DependSuffix)

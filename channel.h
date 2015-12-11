@@ -19,45 +19,8 @@
 */
 
 #pragma once
-#include <stdio.h>
-#include <fcntl.h>
-#include <time.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <unistd.h>
-#include <signal.h>
-#include <sys/param.h>
-
-typedef struct rudp_socket_t rudp_socket_t;
-typedef struct rudp_options_t rudp_options_t;
-typedef struct rudp_packet_t rudp_packet_t;
-typedef struct rudp_hash_node_t rudp_hash_node_t;
-typedef struct rudp_syn_packet_header_t rudp_syn_packet_header_t;
-
-
-enum rudp_channel_timer_type_t {
-    CHANNEL_TIMER_RETRANS=0,
-};
-
-typedef struct {
-    enum rudp_channel_timer_type_t type;
-    struct rudp_socket_t* socket;
-    timer_t timer;
-    struct sigevent* event;
-    struct itimerspec timer_value;
-} rudp_channel_timer_t ;
-
-struct rudp_channel_t{    
-    rudp_channel_timer_t* timer_null;
-    rudp_channel_timer_t* timer_cum_ack;
-    rudp_channel_timer_t* timer_trans_state;
-};
-
-#include "socket.h"
-#include "packet.h"
+#include "rudp.h"
 #include "utils.h"
-
-typedef struct rudp_channel_t rudp_channel_t;
 
 rudp_socket_t* rudp_channel(rudp_socket_t* socket);
 

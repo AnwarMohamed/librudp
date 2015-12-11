@@ -1,33 +1,27 @@
 #include <stdio.h>
 #include "socket.h"
 
-#define HOST    "0.0.0.0"
+#define HOST    "127.0.0.1"
 #define PORT    1337
 
 int main(int argc, char **argv)
 {
-    rudp_socket_t* socket = NULL;
+    rudp_socket_t* socket = 0;
     
-    if ((socket = rudp_socket(NULL))) {
-        printf("rudp_socket() succeed\n");
-    } else {
-        printf("rudp_socket() failed\n");
-        return 0;
+    if (!(socket = rudp_socket(0))) {
+        goto cleanup;
     }
 
+    if (rudp_connect(socket, HOST, PORT) < 0) {
+        goto cleanup;
+    }  
 
-    if (!rudp_connect(socket, HOST, PORT)) {
-        printf("rudp_connect() succeed\n");
-    } else {
-        printf("rudp_connect() failed\n");
-        goto cleanup;        
-    }
-    
+/*    
     rudp_options_t socket_options;
     if (!rudp_options_get(socket, &socket_options)) {
-        printf("rudp_options_get() succeed\n");
+        //printf("rudp_options_get() succeed\n");
     } else {
-        printf("rudp_options_get() failed\n");
+        //printf("rudp_options_get() failed\n");
         goto cleanup;
     }    
     
@@ -35,9 +29,9 @@ int main(int argc, char **argv)
     uint32_t send_buffer_size = strlen((char*) send_buffer) + 1;
     
     if (rudp_send(socket, send_buffer, send_buffer_size) > 0) {
-        printf("rudp_send() succeed\n");
+        //printf("rudp_send() succeed\n");
     } else {
-        printf("rudp_send() failed\n");
+        //printf("rudp_send() failed\n");
         goto cleanup;
     }
     
@@ -46,15 +40,15 @@ int main(int argc, char **argv)
             calloc(recv_buffer_size, sizeof(uint8_t));
     
     if (rudp_recv(socket, recv_buffer, recv_buffer_size) >= 0) {
-        printf("rudp_recv() succeed: %d:%s\n", 
-                recv_buffer_size, recv_buffer);
+        //printf("rudp_recv() succeed: %d:%s\n", 
+        //        recv_buffer_size, recv_buffer);
     } else {
-        printf("rudp_recv() failed\n");
+        //printf("rudp_recv() failed\n");
         goto cleanup;
     }    
-
+*/
 cleanup:    
-    rudp_close(socket, 0);
+    rudp_close(socket, false);
     printf("rudp_close() succeed\n");
     
     return 0;

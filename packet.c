@@ -1,70 +1,74 @@
 #include "packet.h"
 
+
 rudp_packet_t* rudp_packet(
         rudp_packet_type_t type, 
         rudp_socket_t* socket)
 {        
-    printf("rudp_packet()\n");
+    debug_print("rudp_packet()\n");        
     
-    rudp_packet_t* packet = 0;    
-    
-    if (!socket) { goto failed; }
-    
-    if (type != PACKET_TYPE_UNKNOWN) {
-        packet = calloc(1, sizeof(rudp_packet_t));
-        packet->type = type;
-
-        switch(packet->type) {
-        case PACKET_TYPE_SYN:
-        case PACKET_TYPE_SYN_ACK:
-            packet->buffer_size = SYN_PACKET_LENGTH;
-            break;
-        default:
-            packet->buffer_size = BASE_PACKET_LENGTH;
-        }
-                        
-        packet->buffer = calloc(packet->buffer_size, sizeof(uint8_t));        
-        
-        if (rudp_packet_set_header(packet) < 0) { goto failed; }    
-    
-        if (type == PACKET_TYPE_SYN || type == PACKET_TYPE_SYN_ACK) {            
-            if (rudp_packet_set_syn_header(socket, packet) < 0) {
-                goto failed;
-            }                        
-        }
-        
-        switch(type) {
-        case PACKET_TYPE_DATA:
-        case PACKET_TYPE_NULL:
-        case PACKET_TYPE_RESET:
-        case PACKET_TYPE_SYN:
-        case PACKET_TYPE_TCS:
-            packet->needs_ack = true;
-        }
-        
-        goto succeed;
+    if (!socket) { 
+        goto failed; 
     }
     
-    goto failed;
+    if (type == PACKET_TYPE_UNKNOWN) {
+        goto failed;
+    }
     
-succeed:
-    printf("rudp_packet() succeed\n");
-    return packet;
+    rudp_packet_t* new_packet = calloc(1, sizeof(rudp_packet_t));
+    
+    new_packet->creatation_time = rudp_timestamp();
+    new_packet->type = type;
+    
+    if (type == PACKET_TYPE_SYN || type == PACKET_TYPE_SYN_ACK) { 
+        new_packet->buffer_size = SYN_PACKET_LENGTH;
+    } else {
+        new_packet->buffer_size = BASE_PACKET_LENGTH;
+    }
+    
+    new_packet->buffer = calloc(new_packet->buffer_size, sizeof(uint8_t));        
+
+    if (rudp_packet_set_header(socket, new_packet) < 0) { 
+        goto failed; 
+    }
+
+    if (type == PACKET_TYPE_SYN || type == PACKET_TYPE_SYN_ACK) {            
+        if (rudp_packet_set_syn_header(socket, new_packet) < 0) {
+            goto failed;
+        }                        
+    }
+    
+    switch(type) {
+    case PACKET_TYPE_DATA:
+    case PACKET_TYPE_NULL:
+    case PACKET_TYPE_RESET:
+    case PACKET_TYPE_SYN:
+    case PACKET_TYPE_TCS:
+        new_packet->needs_ack = true;
+    }
+
+    debug_print("rudp_packet() succeed\n");
+    return new_packet;
+    
 failed:
-    if (packet)
-        rudp_packet_free(packet);    
+    if (new_packet)
+        rudp_packet_free(new_packet);    
         
-    printf("rudp_packet() failed\n");
-    return NULL;    
+    debug_print("rudp_packet() failed\n");
+    return 0;    
 }
 
+
 int32_t rudp_packet_set_header(
+        rudp_socket_t* socket,
         rudp_packet_t* packet)
 {
-    printf("rudp_packet_set_header()\n");
+    debug_print("rudp_packet_set_header()\n");
     
     rudp_packet_header_t* header = (rudp_packet_header_t*) packet->buffer; 
     header->header_length = BASE_PACKET_LENGTH;
+    header->acknowledge = socket->channel->acknowledge;
+    header->sequence = socket->channel->sequence;
     
     switch(packet->type) {
     case PACKET_TYPE_ACK:
@@ -96,7 +100,7 @@ int32_t rudp_packet_set_header(
     rudp_packet_add_checksum(packet);    
     
 succeed:
-    printf("rudp_packet_set_header() succeed\n");
+    debug_print("rudp_packet_set_header() succeed\n");
     return RUDP_SOCKET_SUCCESS;    
 }
 
@@ -104,34 +108,40 @@ int32_t rudp_packet_set_syn_header(
         rudp_socket_t* socket,
         rudp_packet_t* packet)
 {   
-    printf("rudp_packet_set_syn_header()\n");
+    debug_print("rudp_packet_set_syn_header()\n");
         
     if (packet->type == PACKET_TYPE_SYN)
         memcpy(packet->buffer + BASE_PACKET_LENGTH, 
-                socket->options.conn, SYN_PACKET_HEADER_LENGTH);
+                socket->options->conn, SYN_PACKET_HEADER_LENGTH);
         
     else if (packet->type == PACKET_TYPE_SYN_ACK)
         memcpy(packet->buffer + BASE_PACKET_LENGTH, 
-                socket->options.conn, SYN_PACKET_HEADER_LENGTH);                    
-        //memcpy(socket->options.conn,
-        //        packet->buffer + BASE_PACKET_LENGTH, 
-        //        SYN_PACKET_HEADER_LENGTH);
+                socket->options->conn, SYN_PACKET_HEADER_LENGTH);                    
                 
-    else goto failed;
+    else 
+        goto failed;
     
     rudp_packet_add_checksum(packet);
 
-    printf("rudp_packet_set_syn_header() succeed\n");
+    debug_print("rudp_packet_set_syn_header() succeed\n");
     return RUDP_SOCKET_SUCCESS;
+    
 failed:
-    printf("rudp_packet_set_syn_header() failed\n");
+    debug_print("rudp_packet_set_syn_header() failed\n");
     return RUDP_SOCKET_ERROR;    
 }
+
 
 int32_t rudp_packet_free(
         rudp_packet_t* packet)
 {
-    
+    if (packet) {
+        if (packet->buffer) {
+            free(packet->buffer);
+        }
+        
+        free(packet);
+    }
 }
 
 int32_t rudp_packet_add_checksum(
@@ -182,14 +192,12 @@ uint16_t rudp_packet_checksum(
 bool rudp_packet_check_checksum(
         uint8_t* buffer, 
         uint32_t buffer_size)
-{
-    printf("0x%02X == 0x%02X\n", ((uint16_t*) buffer)[1], 
-            rudp_packet_checksum(buffer, buffer_size));
-            
+{      
     return ((uint16_t*) buffer)[1] == 
             rudp_packet_checksum(buffer, buffer_size);
 }
 
+/*
 void rudp_packet_timeout(
         rudp_channel_timer_t* timer,
         uint32_t interval)
@@ -199,24 +207,30 @@ void rudp_packet_timeout(
     timer->timer_value.it_interval.tv_sec = 0;
     timer->timer_value.it_interval.tv_nsec = 0;
 
-    if (timer_settime(timer->timer, 0, &timer->timer_value, NULL) != 0) {
-        printf("rudp_packet_timeout() failed\n");
+    if (timer_settime(timer->timer, 0, &timer->timer_value, 0) != 0) {
+        debug_print("rudp_packet_timeout() failed\n");
     }
 }
-
+*/
 
 rudp_packet_t* rudp_buffered_packet(
         rudp_socket_t* socket, 
         uint8_t* buffer, 
         uint32_t buffer_size)
 {    
-    printf("rudp_buffered_packet()\n");
+    debug_print("rudp_buffered_packet()\n");
     
-    rudp_packet_type_t type = rudp_packet_check_type(buffer, buffer_size);    
-    if (type == PACKET_TYPE_UNKNOWN) { goto failed; }
+    rudp_packet_type_t type = rudp_packet_check_type(buffer, buffer_size);
+    
+    if (type == PACKET_TYPE_UNKNOWN) { 
+        goto failed; 
+    }
     
     rudp_packet_t* packet = rudp_packet(type, socket);
-    if (!packet) { goto failed; }
+    
+    if (!packet) { 
+        goto failed; 
+    }
     
     rudp_packet_header_t *header = (rudp_packet_header_t*) buffer,
         *packet_header = (rudp_packet_header_t*) packet->buffer;
@@ -228,9 +242,10 @@ rudp_packet_t* rudp_buffered_packet(
     
     if (type == PACKET_TYPE_SYN || type == PACKET_TYPE_SYN_ACK) {
                 
-        if (packet_syn_header->version != socket->options.conn->version ||
-            packet_syn_header->identifier == 0)
-            goto failed;
+        if (packet_syn_header->version != socket->options->conn->version ||
+            packet_syn_header->identifier == 0) {
+            goto failed;            
+        }
         
         memcpy((uint8_t*) packet_header + BASE_PACKET_LENGTH, 
                 (uint8_t*) header + BASE_PACKET_LENGTH, 
@@ -246,18 +261,19 @@ rudp_packet_t* rudp_buffered_packet(
                 packet->buffer_size - SYN_PACKET_LENGTH);
     }
     
-    if (!rudp_packet_check_checksum(buffer, buffer_size))
-        goto failed;
-    
-succeed:    
-    printf("rudp_buffered_packet() succeed\n");
+    if (!rudp_packet_check_checksum(buffer, buffer_size)) {
+        goto failed;        
+    }
+       
+    debug_print("rudp_buffered_packet() succeed\n");
     return packet;
+    
 failed:
     if (packet) 
         rudp_packet_free(packet);
         
-    printf("rudp_buffered_packet() failed\n");        
-    return NULL;
+    debug_print("rudp_buffered_packet() failed\n");        
+    return 0;
 }
 
 rudp_packet_type_t rudp_packet_check_type(
@@ -294,3 +310,4 @@ rudp_packet_type_t rudp_packet_check_type(
     else       
         return PACKET_TYPE_UNKNOWN;
 }
+

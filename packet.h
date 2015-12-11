@@ -19,102 +19,9 @@
 */
 
 #pragma once
-#include "socket.h"
+#include "rudp.h"
+#include "utils.h"
 
-struct rudp_packet_header_t {
-    uint8_t flags;
-    uint8_t header_length;
-    uint16_t checksum;
-    uint16_t window_size;
-    uint32_t sequence;
-    uint32_t acknowledge;    
-};
-
-struct rudp_syn_packet_header_t {
-    uint8_t version;    
-    uint8_t option_flags;
-
-    uint16_t max_segment_size;
-    uint16_t timeout_retransmission;
-    uint16_t timeout_cum_ack;
-    uint16_t timeout_trans_state;
-    uint16_t timeout_null;
-
-    uint8_t max_out_segments;
-    uint8_t max_retransmissions;
-    uint8_t max_cum_ack;
-    uint8_t max_out_sequences;
-    uint8_t max_auto_reset;
-
-    uint32_t identifier;
-};
-
-struct rudp_syn_packet_t {
-    struct rudp_packet_header_t* header;
-    struct rudp_syn_packet_header_t* aux_header;
-};
-
-enum rudp_packet_type_t {
-    PACKET_TYPE_SYN=0,
-    PACKET_TYPE_SYN_ACK,
-    PACKET_TYPE_ACK,
-    PACKET_TYPE_DATA,
-    PACKET_TYPE_NULL,
-    PACKET_TYPE_RESET,
-    PACKET_TYPE_RESET_ACK,    
-    PACKET_TYPE_EACK,
-    PACKET_TYPE_TCS,
-    PACKET_TYPE_TCS_ACK,
-    PACKET_TYPE_UNKNOWN,
-};
-
-enum rudp_packet_flag_t {
-    PACKET_FLAG_SYN = 1<<7,
-    PACKET_FLAG_ACK = 1<<6,
-    PACKET_FLAG_RST = 1<<5,
-    PACKET_FLAG_NUL = 1<<4,
-    PACKET_FLAG_EACK = 1<<3,
-    PACKET_FLAG_TCS = 1<<2,
-    PACKET_FLAG_CHK = 1<<1,
-    PACKET_FLAG_DATA = 1<<0,
-};
-
-struct rudp_packet_t {
-    enum rudp_packet_type_t type;
-    
-    uint8_t* buffer;
-    int32_t buffer_size;
-    
-    uint64_t transmission_time;
-    uint64_t creatation_time;
-    
-    uint16_t source_port;
-    uint32_t source_addr;
-    
-    uint16_t destination_port;
-    uint32_t destination_addr;
-
-    struct rudp_channel_timer_t* timer_retrans;
-    uint8_t counter_retrans;
-    
-    bool needs_ack;    
-    struct rudp_packet_t* ack;
-};
-
-typedef struct rudp_packet_t rudp_packet_t;
-typedef struct rudp_syn_packet_t rudp_syn_packet_t;
-typedef struct rudp_packet_header_t rudp_packet_header_t;
-typedef struct rudp_syn_packet_header_t rudp_syn_packet_header_t;
-typedef rudp_packet_header_t rudp_rst_packet_t;
-typedef rudp_rst_packet_t rudp_nul_packet_t;
-typedef rudp_nul_packet_t rudp_ack_packet_t;
-typedef enum rudp_packet_flag_t rudp_packet_flag_t;
-typedef enum rudp_packet_type_t rudp_packet_type_t;
-
-#define BASE_PACKET_LENGTH sizeof(rudp_packet_header_t)
-#define SYN_PACKET_HEADER_LENGTH sizeof(rudp_syn_packet_header_t)
-#define SYN_PACKET_LENGTH BASE_PACKET_LENGTH + \
-        SYN_PACKET_HEADER_LENGTH
 
 rudp_packet_t* rudp_packet(rudp_packet_type_t type, rudp_socket_t* socket);
 
@@ -127,7 +34,7 @@ int32_t rudp_packet_add_checksum(rudp_packet_t* packet);
 bool rudp_packet_check_checksum(uint8_t* buffer, uint32_t buffer_size);
 uint16_t rudp_packet_checksum(uint8_t* buffer, uint32_t buffer_size);
 
-int32_t rudp_packet_set_header(rudp_packet_t* packet);
+int32_t rudp_packet_set_header(rudp_socket_t* socket, rudp_packet_t* packet);
 
 int32_t rudp_packet_set_syn_header(rudp_socket_t* socket, 
         rudp_packet_t* packet);

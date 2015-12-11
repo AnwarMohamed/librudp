@@ -19,31 +19,5 @@
 */
 
 #pragma once
-#include <stdint.h>
-#include <stdlib.h>
-#include <time.h>
 #include "rudp.h"
-
-#ifdef DEBUG_MODE
-#define debug_print(fmt, ...) \
-    do { printf(fmt, ## __VA_ARGS__); } while (0)
-#else
-#define debug_print(fmt, ...) \
-    do { } while (0)
-#endif
-
-#define EXPORT __attribute__((visibility("default")))
-#define LOCAL __attribute__((visibility("hidden")))
-
-uint64_t rudp_timestamp();
-uint64_t rudp_random();
-uint32_t rudp_sequence(rudp_socket_t* socket);
-
-#define ANSI_COLOR_RED     "\x1b[1;31m"
-#define ANSI_COLOR_GREEN   "\x1b[1;32m"
-#define ANSI_COLOR_YELLOW  "\x1b[1;33m"
-#define ANSI_COLOR_BLUE    "\x1b[1;34m"
-#define ANSI_COLOR_MAGENTA "\x1b[1;35m"
-#define ANSI_COLOR_CYAN    "\x1b[1;36m"
-#define ANSI_COLOR_RESET   "\x1b[0m"
-
+#include "utils.h"
