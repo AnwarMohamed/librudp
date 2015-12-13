@@ -21,3 +21,11 @@
 #pragma once
 #include "rudp.h"
 #include "utils.h"
+#include "packet.h"
+
+window_t* window(uint8_t max_size);
+int32_t window_free(window_t* window);
+
+queue_node_t* window_get(window_t* window, uint32_t index);
+void window_out_enqueue(window_t* window, packet_t* packet);
+void window_expand(window_t* window);

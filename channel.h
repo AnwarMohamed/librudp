@@ -21,65 +21,58 @@
 #pragma once
 #include "rudp.h"
 #include "utils.h"
+#include "socket.h"
+#include "packet.h"
+#include "window.h"
 
-rudp_socket_t* rudp_channel(rudp_socket_t* socket);
 
-int32_t rudp_channel_handshake(rudp_socket_t* socket, 
+socket_t* channel(socket_t* socket);
+
+int32_t channel_send(socket_t* socket, 
         uint8_t* buffer, uint32_t buffer_size);
 
-int32_t rudp_channel_send(rudp_socket_t* socket, 
+int32_t channel_send_raw(socket_t* socket, 
         uint8_t* buffer, uint32_t buffer_size);
 
-int32_t rudp_channel_send_raw(rudp_socket_t* socket, 
-        uint8_t* buffer, uint32_t buffer_size);
-
-int32_t rudp_channel_send_packet(rudp_socket_t* socket, 
-        rudp_packet_t* packet);        
+int32_t channel_send_packet(packet_t* packet);        
         
-int32_t rudp_channel_recv(rudp_socket_t* socket, 
+int32_t channel_recv(socket_t* socket, 
         uint8_t* buffer, uint32_t buffer_size);
 
-int32_t rudp_channel_recv_raw(rudp_socket_t* socket, 
+int32_t channel_recv_raw(socket_t* socket, 
         uint8_t* buffer, uint32_t buffer_size);
 
-int32_t rudp_channel_close(rudp_socket_t* socket);
-int32_t rudp_channel_free(rudp_socket_t* socket);
+int32_t channel_free(socket_t* socket);
 
-void rudp_channel_negotiate(rudp_socket_t* socket,
-        rudp_options_t* server, rudp_syn_packet_header_t* client);
+
+void channel_timer_handler(utimer_t* utimer);
+
+void channel_deattach_node(socket_t* socket);
+
+hash_node_t* channel_established(socket_t* socket);
+hash_node_t* channel_waiting(socket_t* socket);
+
+void channel_retransmit(socket_t* socket);
+
+int32_t channel_recv_eack(
+        socket_t* socket, packet_t* packet);
+int32_t channel_recv_reset_ack(
+        socket_t* socket, packet_t* packet);
+int32_t channel_recv_reset(
+        socket_t* socket, packet_t* packet);
+int32_t channel_recv_data(
+        socket_t* socket, packet_t* packet);
+int32_t channel_recv_null(
+        socket_t* socket, packet_t* packet);
+int32_t channel_recv_syn(
+        socket_t* socket, packet_t* packet);
+int32_t channel_recv_syn_ack(
+        socket_t* socket, packet_t* packet);
+int32_t channel_recv_ack(
+        socket_t* socket, packet_t* packet);
+int32_t channel_recv_tcs(
+        socket_t* socket, packet_t* packet);
+int32_t channel_recv_tcs_ack(
+        socket_t* socket, packet_t* packet);
         
-rudp_channel_timer_t* rudp_channel_timer(rudp_socket_t* socket);
-void rudp_channel_timer_close(rudp_channel_timer_t* timer);
-
-
-void rudp_channel_timer_handler(rudp_channel_timer_t* timer);
-
-void rudp_channel_deattach_node(rudp_socket_t* socket);
-
-rudp_hash_node_t* rudp_channel_established(rudp_socket_t* socket);
-rudp_hash_node_t* rudp_channel_waiting(rudp_socket_t* socket);
-
-void rudp_channel_retransmit(rudp_socket_t* socket);
-
-int32_t rudp_channel_recv_eack(
-        rudp_socket_t* socket, rudp_packet_t* packet);
-int32_t rudp_channel_recv_reset_ack(
-        rudp_socket_t* socket, rudp_packet_t* packet);
-int32_t rudp_channel_recv_reset(
-        rudp_socket_t* socket, rudp_packet_t* packet);
-int32_t rudp_channel_recv_data(
-        rudp_socket_t* socket, rudp_packet_t* packet);
-int32_t rudp_channel_recv_null(
-        rudp_socket_t* socket, rudp_packet_t* packet);
-int32_t rudp_channel_recv_syn(
-        rudp_socket_t* socket, rudp_packet_t* packet);
-int32_t rudp_channel_recv_syn_ack(
-        rudp_socket_t* socket, rudp_packet_t* packet);
-int32_t rudp_channel_recv_ack(
-        rudp_socket_t* socket, rudp_packet_t* packet);
-int32_t rudp_channel_recv_tcs(
-        rudp_socket_t* socket, rudp_packet_t* packet);
-int32_t rudp_channel_recv_tcs_ack(
-        rudp_socket_t* socket, rudp_packet_t* packet);
-        
-int32_t rudp_channel_start_handshake(rudp_socket_t* socket);
+int32_t channel_handshake_start(socket_t* socket);

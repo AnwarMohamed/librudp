@@ -1,13 +1,13 @@
 #include <stdio.h>
 #include <signal.h>
 #include <unistd.h>
-#include "socket.h"
+#include "rudp.h"
 
 #define HOST    "127.0.0.1"
 #define PORT    1337
 #define BACKLOG 100
 
-rudp_socket_t* server_socket = NULL;
+socket_t* server_socket = NULL;
 
 void handle_signal(int signal) {
     //rudp_close(server_socket, true);

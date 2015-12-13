@@ -1,12 +1,13 @@
+
 #include <stdio.h>
-#include "socket.h"
+#include "rudp.h"
 
 #define HOST    "127.0.0.1"
 #define PORT    1337
 
 int main(int argc, char **argv)
 {
-    rudp_socket_t* socket = 0;
+    socket_t* socket = 0;
     
     if (!(socket = rudp_socket(0))) {
         goto cleanup;
@@ -16,7 +17,7 @@ int main(int argc, char **argv)
         goto cleanup;
     }  
 
-/*    
+ /*   
     rudp_options_t socket_options;
     if (!rudp_options_get(socket, &socket_options)) {
         //printf("rudp_options_get() succeed\n");

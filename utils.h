@@ -23,6 +23,8 @@
 #include <stdlib.h>
 #include <time.h>
 #include "rudp.h"
+#include "socket.h"
+#include "channel.h"
 
 #ifdef DEBUG_MODE
 #define debug_print(fmt, ...) \
@@ -37,7 +39,7 @@
 
 uint64_t rudp_timestamp();
 uint64_t rudp_random();
-uint32_t rudp_sequence(rudp_socket_t* socket);
+uint32_t rudp_sequence(socket_t* socket);
 
 #define ANSI_COLOR_RED     "\x1b[1;31m"
 #define ANSI_COLOR_GREEN   "\x1b[1;32m"
@@ -47,3 +49,6 @@ uint32_t rudp_sequence(rudp_socket_t* socket);
 #define ANSI_COLOR_CYAN    "\x1b[1;36m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
 
+utimer_t* utimer(socket_t* socket, packet_t* packet, timer_type_t type);
+void utimer_set(utimer_t* utimer, uint32_t interval);
+void utimer_free(utimer_t* utimer);

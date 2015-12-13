@@ -1,25 +1,25 @@
 #include "linkedlist.h"
 
-llist_t* llist_init() 
+linkedlist_t* linkedlist() 
 {
-    return (llist_t*) calloc(1, sizeof(llist_t));        
+    return (linkedlist_t*) calloc(1, sizeof(linkedlist_t));        
 }
 
-llist_node_t* llist_node_init(
+linkedlist_node_t* linkedlist_node(
         void* data) 
 {
-    llist_node_t* llist_node = calloc(1, sizeof(llist_node_t));
+    linkedlist_node_t* llist_node = calloc(1, sizeof(linkedlist_node_t));
     llist_node->data = data;
 }
 
-llist_node_t* llist_insert_head(
-        llist_t* llist, 
+linkedlist_node_t* linkedlist_insert_head(
+        linkedlist_t* llist, 
         void* data)
 {
     if (!llist)
         return NULL;
     
-    llist_node_t* llist_node = llist_node_init(data);
+    linkedlist_node_t* llist_node = linkedlist_node(data);
     llist_node->prev = NULL;
     llist_node->next = llist->head;    
     
@@ -35,14 +35,14 @@ llist_node_t* llist_insert_head(
     return llist_node;
 }
 
-llist_node_t* llist_insert_tail(
-        llist_t* llist, 
+linkedlist_node_t* linkedlist_insert_tail(
+        linkedlist_t* llist, 
         void* data)
 {
     if (!llist)
         return NULL;
     
-    llist_node_t* llist_node = llist_node_init(data);
+    linkedlist_node_t* llist_node = linkedlist_node(data);
     llist_node->prev = llist->tail;
     llist_node->next = NULL;    
     
@@ -58,13 +58,13 @@ llist_node_t* llist_insert_tail(
     return llist_node;
 }
 
-llist_node_t* llist_remove_head(
-        llist_t* llist)
+linkedlist_node_t* linkedlist_remove_head(
+        linkedlist_t* llist)
 {
     if (!llist)
         return NULL;                
     
-    llist_node_t* llist_node = llist->head;    
+    linkedlist_node_t* llist_node = llist->head;    
     llist->head = llist_node->next;
     
     if (llist->head) {
@@ -82,13 +82,13 @@ llist_node_t* llist_remove_head(
     return llist_node;
 }
 
-llist_node_t* llist_remove_tail(
-        llist_t* llist)
+linkedlist_node_t* linkedlist_remove_tail(
+        linkedlist_t* llist)
 {
     if (!llist)
         return NULL;        
     
-    llist_node_t* llist_node = llist->tail;    
+    linkedlist_node_t* llist_node = llist->tail;    
     llist->tail = llist_node->prev;
     
     if (llist->tail) {
@@ -106,25 +106,25 @@ llist_node_t* llist_remove_tail(
     return llist_node;  
 }
 
-uint8_t llist_empty(
-        llist_t* llist)
+uint8_t linkedlist_empty(
+        linkedlist_t* llist)
 {
     return llist ? !llist->size: 0;
 }
 
-uint32_t llist_size(
-        llist_t* llist)
+uint32_t linkedlist_size(
+        linkedlist_t* llist)
 {
     return llist ? llist->size: 0;
 }
 
-void llist_free(
-        llist_t* llist, 
+void linkedlist_free(
+        linkedlist_t* llist, 
         bool free_data)
 {
-    llist_node_t* llist_node;
-    while (llist_size(llist)) {
-        llist_node = llist_remove_tail(llist);
+    linkedlist_node_t* llist_node;
+    while (linkedlist_size(llist)) {
+        llist_node = linkedlist_remove_tail(llist);
         
         if (free_data && llist_node->data)
             free(llist_node->data);

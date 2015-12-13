@@ -24,30 +24,30 @@
 #include <semaphore.h>
 #include <stdbool.h>
 
-typedef struct llist_node_t llist_node_t;
+typedef struct linkedlist_node_t linkedlist_node_t;
 
-struct llist_node_t {
-    llist_node_t* prev;
-    llist_node_t* next;
+struct linkedlist_node_t {
+    linkedlist_node_t* prev;
+    linkedlist_node_t* next;
     void* data;    
 };
 
 typedef struct {
     uint32_t size;    
-    llist_node_t* head;
-    llist_node_t* tail;    
-} llist_t;
+    linkedlist_node_t* head;
+    linkedlist_node_t* tail;    
+} linkedlist_t;
 
-llist_t* llist_init();
-void llist_free(llist_t* llist, bool free_data);
+linkedlist_t* linkedlist();
+void linkedlist_free(linkedlist_t* llist, bool free_data);
 
-llist_node_t* llist_node_init(void* data);
+linkedlist_node_t* linkedlist_node(void* data);
 
-llist_node_t* llist_insert_head(llist_t* llist, void* data);
-llist_node_t* llist_insert_tail(llist_t* llist, void* data);
+linkedlist_node_t* linkedlist_insert_head(linkedlist_t* llist, void* data);
+linkedlist_node_t* linkedlist_insert_tail(linkedlist_t* llist, void* data);
 
-llist_node_t* llist_remove_head(llist_t* llist);
-llist_node_t* llist_remove_tail(llist_t* llist);
+linkedlist_node_t* linkedlist_remove_head(linkedlist_t* llist);
+linkedlist_node_t* linkedlist_remove_tail(linkedlist_t* llist);
 
-uint8_t llist_empty(llist_t* llist);
-uint32_t llist_size(llist_t* llist);
+uint8_t linkedlist_empty(linkedlist_t* llist);
+uint32_t linkedlist_size(linkedlist_t* llist);

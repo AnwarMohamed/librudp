@@ -1,24 +1,27 @@
 #include "channel.h"
 
 
-rudp_socket_t* rudp_channel(rudp_socket_t* socket)
+socket_t* channel(socket_t* socket)
 {
-    debug_print("rudp_channel()\n");
+    debug_print("channel()\n");
     
-    rudp_socket_t* new_socket = NULL;
-    rudp_hash_node_t* hash_node = NULL;
-    rudp_socket_t* hash_socket = NULL;
+    socket_t* new_socket = NULL;
+    hash_node_t* hash_node = NULL;
+    socket_t* hash_socket = NULL;
     
-    rudp_channel_t* channel = calloc(1, sizeof(rudp_channel_t));
+    channel_t* channel = calloc(1, sizeof(channel_t));
     
-    channel->timer_trans_state = rudp_channel_timer(socket);
-    channel->timer_cum_ack = rudp_channel_timer(socket);
-    channel->timer_null = rudp_channel_timer(socket);    
+    channel->timer_trans_state = utimer(socket, 0, TIMER_TRANS_STATE);
+    channel->timer_cum_ack = utimer(socket, 0, TIMER_CUM_ACK);
+    channel->timer_null = utimer(socket, 0, TIMER_NULL);    
     
     channel->sequence = rudp_sequence(socket);
     
+    channel->out_window = window(10);
+    channel->in_window = window(10);
+    
     if (socket->type == TYPE_SERVER) {                
-        rudp_options_t* new_socket_options = rudp_options();
+        socket_options_t* new_socket_options = socket_options();
         new_socket_options->internal = true;
         new_socket_options->parent = socket;                                
         
@@ -37,7 +40,7 @@ rudp_socket_t* rudp_channel(rudp_socket_t* socket)
     new_socket->socket_fd = socket->socket_fd;
     new_socket->channel = channel;        
     
-    hash_node = calloc (1, sizeof(rudp_hash_node_t));
+    hash_node = calloc (1, sizeof(hash_node_t));
     hash_node->key = new_socket->remote_addr;
     hash_node->value = new_socket;
 
@@ -47,50 +50,42 @@ rudp_socket_t* rudp_channel(rudp_socket_t* socket)
     HASH_ADD(hh, hash_socket->waiting_hash, key, 
             sizeof(struct sockaddr_in), hash_node);        
     
-    debug_print("rudp_channel() succeed\n");
+    debug_print("channel() succeed\n");
     return new_socket;
 }
 
-int32_t rudp_channel_close(
-        rudp_socket_t* socket)
+int32_t channel_free(
+        socket_t* socket)
 {
-    if (socket && socket->channel) {                
-        rudp_channel_timer_close(socket->channel->timer_cum_ack);
-        rudp_channel_timer_close(socket->channel->timer_null);
-        rudp_channel_timer_close(socket->channel->timer_trans_state);   
+    if (socket && socket->channel) {          
+        utimer_free(socket->channel->timer_cum_ack);
+        utimer_free(socket->channel->timer_null);
+        utimer_free(socket->channel->timer_trans_state);
         
-        /* TODO: free hash maps */
-         
+        window_free(socket->channel->out_window);
+        window_free(socket->channel->in_window);
+        
         free(socket->channel);
     }
 }
 
-void rudp_channel_timer_handler(rudp_channel_timer_t* timer)
-{
-    debug_print("rudp_channel_timer_handler() triggered\n");
-}
 
-void rudp_channel_timer_close(
-        rudp_channel_timer_t* timer)
+void channel_timer_handler(utimer_t* timer)
 {
-    timer_delete(timer->timer);
-    free(timer->event);
-    free(timer);
-}
-
-rudp_channel_timer_t* rudp_channel_timer(
-        rudp_socket_t* socket)
-{
-    rudp_channel_timer_t* timer = calloc(1, sizeof(rudp_channel_timer_t));
-    timer->event = calloc(1, sizeof(struct sigevent));
-    timer->event->sigev_notify = SIGEV_SIGNAL;        
-    timer->event->sigev_signo = RUDP_SOCKET_SIGNAL;
-    timer->event->sigev_value.sival_ptr = timer;
-
-    timer_create(CLOCK_REALTIME, timer->event, &timer->timer);
+    debug_print("channel_timer_handler() triggered\n");        
     
-    return timer;
+    if (timer->type == TIMER_RETRANS) {        
+        
+        if (timer->packet->needs_ack) {            
+            packet_timeout(timer);            
+        } else {
+            utimer_set(timer, 0);
+        }
+    }
+    
 }
+
+
 
 /*
 void rudp_channel_deattach(
@@ -126,30 +121,30 @@ void rudp_channel_deattach_node(
 }
 */
 
-int32_t rudp_channel_start_handshake(
-    rudp_socket_t* socket)
+int32_t channel_handshake_start(
+    socket_t* socket)
 {
-    debug_print("rudp_channel_start_handshake()\n");        
+    debug_print("channel_handshake_start()\n");        
     
-    rudp_packet_t* syn_packet = rudp_packet(PACKET_TYPE_SYN, socket);    
+    packet_t* syn_packet = packet(PACKET_TYPE_SYN, socket);    
     
     if (!syn_packet) { 
         goto failed; 
     }
 
-    if (rudp_channel_send_packet(socket, syn_packet) < 0) {
+    if (channel_send_packet(syn_packet) < 0) {
         goto failed;        
     }
     
     socket->options->state = STATE_SYN_SENT;
     
-    debug_print("rudp_channel_start_handshake() succeed\n");
+    debug_print("channel_handshake_start() succeed\n");
     return RUDP_SOCKET_SUCCESS;
     
 failed:
-    debug_print("rudp_channel_start_handshake() failed\n");
+    debug_print("channel_handshake_start() failed\n");
     
-    rudp_packet_free(syn_packet);
+    packet_free(syn_packet);
     return RUDP_SOCKET_ERROR;    
 }
 
@@ -175,12 +170,12 @@ int32_t rudp_channel_send(
 }
 */
 
-int32_t rudp_channel_send_raw(
-        rudp_socket_t* socket,
+int32_t channel_send_raw(
+        socket_t* socket,
         uint8_t* buffer,
         uint32_t buffer_size)
 {
-    debug_print("rudp_channel_send_raw()\n");
+    debug_print("channel_send_raw()\n");
     
     if (sendto(socket->socket_fd, buffer, buffer_size, 0, 
             (struct sockaddr *)& socket->remote_addr, 
@@ -188,11 +183,11 @@ int32_t rudp_channel_send_raw(
         goto failed;
     }
         
-    debug_print("rudp_channel_send_raw() succeed\n");
+    debug_print("channel_send_raw() succeed\n");
     return RUDP_SOCKET_SUCCESS;
     
 failed:
-    debug_print("rudp_channel_send_raw() failed\n");
+    debug_print("channel_send_raw() failed\n");
     return RUDP_SOCKET_ERROR;            
 }
  
@@ -250,26 +245,29 @@ failed:
 }
 */
 
-int32_t rudp_channel_send_packet(
-        rudp_socket_t* socket, 
-        rudp_packet_t* packet)
-{
-    packet->transmission_time = rudp_timestamp();    
-    queue_enqueue(socket->out_buffer, packet);
+int32_t channel_send_packet( 
+        packet_t* packet)
+{                    
+    packet->transmission_time = rudp_timestamp();
     
-    rudp_packet_header_t* header = 
-            (rudp_packet_header_t*) packet->buffer;
+    packet->destination_addr = 
+            ntohl(packet->socket->remote_addr.sin_addr.s_addr);
+    packet->destination_port = 
+            ntohs(packet->socket->remote_addr.sin_port);
+            
+    packet->source_addr = 
+            ntohl(packet->socket->local_addr.sin_addr.s_addr);
+    packet->source_port = 
+            ntohs(packet->socket->local_addr.sin_port);
     
-    printf(ANSI_COLOR_GREEN 
-            "%s:%d <== %s:%d\tseq: 0x%08x, ack: 0x%08x\n" 
-            ANSI_COLOR_RESET,                       
-            inet_ntoa(socket->remote_addr.sin_addr), 
-            ntohs(socket->remote_addr.sin_port),
-            inet_ntoa(socket->local_addr.sin_addr), 
-            ntohs(socket->local_addr.sin_port),              
-            header->sequence, header->acknowledge);
+    if (packet->needs_ack) {
+        utimer_set(packet->timer_retrans, 
+                packet->socket->options->conn->timeout_retransmission);
+    }
     
-    return rudp_channel_send_raw(socket, 
+    packet_print(packet);
+    
+    return channel_send_raw(packet->socket, 
             packet->buffer, packet->buffer_size);
 }
 
@@ -292,33 +290,33 @@ void rudp_channel_retransmit(
 }
 */
 
-int32_t rudp_channel_recv_eack(
-        rudp_socket_t* socket,
-        rudp_packet_t* packet)
+int32_t channel_recv_eack(
+        socket_t* socket,
+        packet_t* packet)
 {
 }
 
-int32_t rudp_channel_recv_reset_ack(
-        rudp_socket_t* socket,
-        rudp_packet_t* packet)
+int32_t channel_recv_reset_ack(
+        socket_t* socket,
+        packet_t* packet)
 {
 }
 
-int32_t rudp_channel_recv_reset(
-        rudp_socket_t* socket,
-        rudp_packet_t* packet)
+int32_t channel_recv_reset(
+        socket_t* socket,
+        packet_t* packet)
 {
 }
 
-int32_t rudp_channel_recv_data(
-        rudp_socket_t* socket,
-        rudp_packet_t* packet)
+int32_t channel_recv_data(
+        socket_t* socket,
+        packet_t* packet)
 {
 }
 
-int32_t rudp_channel_recv_null(
-        rudp_socket_t* socket,
-        rudp_packet_t* packet)
+int32_t channel_recv_null(
+        socket_t* socket,
+        packet_t* packet)
 {
 }
 /*
@@ -440,71 +438,63 @@ failed:
 }
 */
 
-int32_t rudp_channel_recv_ack(
-        rudp_socket_t* socket,
-        rudp_packet_t* packet)
+int32_t channel_recv_ack(
+        socket_t* socket,
+        packet_t* packet)
 {
     return RUDP_SOCKET_SUCCESS;
 }
 
-int32_t rudp_channel_recv_tcs(
-        rudp_socket_t* socket,
-        rudp_packet_t* packet)
+int32_t channel_recv_tcs(
+        socket_t* socket,
+        packet_t* packet)
 {
 }
 
-int32_t rudp_channel_recv_tcs_ack(
-        rudp_socket_t* socket,
-        rudp_packet_t* packet)
+int32_t channel_recv_tcs_ack(
+        socket_t* socket,
+        packet_t* packet)
 {
 }
 
-int32_t rudp_channel_recv_raw(
-        rudp_socket_t* socket,
+int32_t channel_recv_raw(
+        socket_t* socket,
         uint8_t* buffer,
         uint32_t buffer_size)
 {
-    debug_print("rudp_channel_recv_raw()\n");
+    debug_print("channel_recv_raw()\n");
     
-    rudp_packet_t* packet = rudp_buffered_packet(socket, buffer, buffer_size);
-    rudp_packet_header_t* header = (rudp_packet_header_t*) packet->buffer;
-    
-    printf(ANSI_COLOR_GREEN 
-            "%s:%d ==> %s:%d\tseq: 0x%08x, ack: 0x%08x\n" 
-            ANSI_COLOR_RESET, 
-            inet_ntoa(socket->remote_addr.sin_addr), 
-            ntohs(socket->remote_addr.sin_port),
-            inet_ntoa(socket->local_addr.sin_addr), 
-            ntohs(socket->local_addr.sin_port),            
-            header->sequence, header->acknowledge);
+    packet_t* packet = packet_buffered(socket, buffer, buffer_size);          
     
     if (!packet) { 
         goto failed; 
     }
     
+    packet_print(packet);
+    
     switch(packet->type) {
     case PACKET_TYPE_ACK:
-        if (rudp_channel_recv_ack(socket, packet) < 0)
+        if (channel_recv_ack(socket, packet) < 0)
             goto failed;        
         break;
     case PACKET_TYPE_DATA:
-        if (rudp_channel_recv_data(socket, packet) < 0)
+        if (channel_recv_data(socket, packet) < 0)
             goto failed;        
         break;
     case PACKET_TYPE_EACK:
-        if (rudp_channel_recv_eack(socket, packet) < 0)
+        if (channel_recv_eack(socket, packet) < 0)
             goto failed;    
         break;
     case PACKET_TYPE_NULL:
-        if (rudp_channel_recv_null(socket, packet) < 0)
+        if (channel_recv_null(socket, packet) < 0)
             goto failed;    
         break;
     case PACKET_TYPE_RESET:
-        if (rudp_channel_recv_reset(socket, packet) < 0)
+        if (channel_recv_reset(socket, packet) < 0)
             goto failed;    
         break;
     case PACKET_TYPE_RESET_ACK:
-        if (rudp_channel_recv_reset_ack(socket, packet) < 0)
+        if (channel_recv_reset_ack(socket, packet) < 0)
             goto failed;    
         break;
     case PACKET_TYPE_SYN:
@@ -516,11 +506,11 @@ int32_t rudp_channel_recv_raw(
         //    goto failed;            
         break;
     case PACKET_TYPE_TCS:
-        if (rudp_channel_recv_tcs(socket, packet) < 0)
+        if (channel_recv_tcs(socket, packet) < 0)
             goto failed;
         break;
     case PACKET_TYPE_TCS_ACK:
-        if (rudp_channel_recv_tcs_ack(socket, packet) < 0)
+        if (channel_recv_tcs_ack(socket, packet) < 0)
             goto failed;    
         break;
     default:        
@@ -528,29 +518,29 @@ int32_t rudp_channel_recv_raw(
     }    
 
 
-    debug_print("rudp_channel_recv_raw() succeed\n");
+    debug_print("channel_recv_raw() succeed\n");
     return RUDP_SOCKET_SUCCESS; 
 
 failed:
     //rudp_channel_retransmit(socket);
     
-    debug_print("rudp_channel_recv_raw() failed\n");
+    debug_print("channel_recv_raw() failed\n");
     return RUDP_SOCKET_ERROR;    
 }
 
-rudp_hash_node_t* rudp_channel_waiting(
-        rudp_socket_t* socket) 
+hash_node_t* channel_waiting(
+        socket_t* socket) 
 {
-    rudp_hash_node_t* hash_node;
+    hash_node_t* hash_node;
     HASH_FIND(hh, socket->waiting_hash, &socket->remote_addr, 
             sizeof(struct sockaddr_in), hash_node);
     return hash_node;
 }
 
-rudp_hash_node_t* rudp_channel_established(
-        rudp_socket_t* socket) 
+hash_node_t* channel_established(
+        socket_t* socket) 
 {
-    rudp_hash_node_t* hash_node;
+    hash_node_t* hash_node;
     HASH_FIND(hh, socket->established_hash, &socket->remote_addr, 
             sizeof(struct sockaddr_in), hash_node);
     return hash_node;

@@ -21,29 +21,29 @@
 #pragma once
 #include "rudp.h"
 #include "utils.h"
+#include "channel.h"
 
-
-rudp_packet_t* rudp_packet(rudp_packet_type_t type, rudp_socket_t* socket);
-
-rudp_packet_t* rudp_packet_from_buffer(rudp_packet_type_t type, 
-        rudp_socket_t* socket, uint8_t* buffer, uint32_t buffer_size);
+packet_t* packet(packet_type_t type, socket_t* socket);
         
-int32_t rudp_packet_free(rudp_packet_t* packet);
+int32_t packet_free(packet_t* packet);
 
-int32_t rudp_packet_add_checksum(rudp_packet_t* packet);
-bool rudp_packet_check_checksum(uint8_t* buffer, uint32_t buffer_size);
-uint16_t rudp_packet_checksum(uint8_t* buffer, uint32_t buffer_size);
+int32_t packet_checksum_add(packet_t* packet);
+bool packet_checksum_check(uint8_t* buffer, uint32_t buffer_size);
+uint16_t packet_checksum(uint8_t* buffer, uint32_t buffer_size);
 
-int32_t rudp_packet_set_header(rudp_socket_t* socket, rudp_packet_t* packet);
+int32_t packet_header_set(socket_t* socket, packet_t* packet);
 
-int32_t rudp_packet_set_syn_header(rudp_socket_t* socket, 
-        rudp_packet_t* packet);
+int32_t packet_syn_header_set(socket_t* socket, 
+        packet_t* packet);
         
-rudp_packet_type_t rudp_packet_check_type(uint8_t* buffer, 
+packet_type_t packet_type_check(uint8_t* buffer, 
         uint32_t buffer_size);
 
-
-void rudp_packet_timeout(rudp_channel_timer_t* timer, uint32_t interval);
-
-rudp_packet_t* rudp_buffered_packet(rudp_socket_t* socket, 
+packet_t* packet_buffered(socket_t* socket, 
         uint8_t* buffer, uint32_t buffer_size);
+        
+int32_t packet_data_set(packet_t* packet, 
+        uint8_t* buffer, uint32_t buffer_size);
+        
+void packet_timeout(utimer_t* timer);
+void packet_print(packet_t* packet);        

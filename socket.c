@@ -1,20 +1,18 @@
 #include "socket.h"
 
-static void rudp_timer_handler(
-        int signo, 
-        siginfo_t *si, 
-        void *uc) 
+void socket_timer_handler(
+        union sigval sigval) 
 {    
-    //rudp_channel_timer_handler(si->si_value.sival_ptr);
+    channel_timer_handler(sigval.sival_ptr);    
 }
 
-rudp_socket_t* rudp_socket(
-        rudp_options_t* options)
+socket_t* rudp_socket(
+        socket_options_t* options)
 {
     debug_print("rudp_socket()\n");
     
-    rudp_socket_t* new_socket = 
-            (rudp_socket_t*) calloc (1, sizeof(rudp_socket_t));
+    socket_t* new_socket = 
+            (socket_t*) calloc (1, sizeof(socket_t));
     
     if (!new_socket) { 
         goto failed; 
@@ -23,7 +21,7 @@ rudp_socket_t* rudp_socket(
     if (options) {
         new_socket->options = options;
     } else {              
-        new_socket->options = rudp_options();
+        new_socket->options = socket_options();
         sem_init(&new_socket->options->state_lock, 0, 0);        
     }
     
@@ -32,27 +30,25 @@ rudp_socket_t* rudp_socket(
     }
     
     if (!new_socket->options->internal) {        
-        if (!(new_socket = rudp_linux_socket(new_socket))) {
+        if (!(new_socket = socket_linux(new_socket))) {
             goto failed;         
         }
     }
     
-    if (!(new_socket->in_buffer = queue_init()))
+    if (!(new_socket->ready_queue = queue())) {
+        goto failed;                
+    }
+    
+    /*
+    struct sigaction* sa = (struct sigaction*) calloc(1, sizeof(struct sigaction));
+    sigemptyset(&sa->sa_mask);
+    sa->sa_flags = SA_SIGINFO;
+    sa->sa_sigaction = rudp_timer_handler;
+    
+    if(sigaction(RUDP_SOCKET_SIGNAL, sa, 0) < 0) {
         goto failed;            
-        
-    if (!(new_socket->out_buffer = queue_init()))
-        goto failed;    
-
-    if (!(new_socket->ready_queue = queue_init()))
-        goto failed;        
-    
-    struct sigaction sa; 
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = SA_SIGINFO;
-    sa.sa_sigaction = rudp_timer_handler;
-    
-    if(sigaction(RUDP_SOCKET_SIGNAL, &sa, 0) < 0)
-        goto failed;    
+    }
+     */
 
     debug_print("rudp_socket() succeed\n");
     return new_socket;
@@ -63,30 +59,32 @@ failed:
     return 0;
 }
 
-rudp_options_t* rudp_options()
+socket_options_t* socket_options()
 {
-    rudp_options_t* options = 
-            (rudp_options_t*) calloc(1, sizeof(rudp_options_t));
+    socket_options_t* options = 
+            (socket_options_t*) calloc(1, sizeof(socket_options_t));
     
-    options->conn = (rudp_conn_options_t*) 
-            calloc(1, sizeof(rudp_conn_options_t));                
+    options->conn = (socket_conn_options_t*) 
+            calloc(1, sizeof(socket_conn_options_t));                
     
     options->conn->version = 1;    
     options->conn->max_segment_size = 1024;
+    options->conn->max_retransmissions = 5;
+    options->conn->timeout_retransmission = 300;    
     options->conn->identifier = rudp_random();
     
     options->state = STATE_CLOSED;
     
-    options->peer = (rudp_peer_options_t*) 
-            calloc(1, sizeof(rudp_peer_options_t));
+    options->peer = (socket_peer_options_t*) 
+            calloc(1, sizeof(socket_peer_options_t));
         
     return options;
 }
 
-rudp_socket_t* rudp_linux_socket(
-        rudp_socket_t* new_socket)
+socket_t* socket_linux(
+        socket_t* new_socket)
 {
-    debug_print("rudp_linux_socket()\n");
+    debug_print("socket_linux()\n");
     
     int32_t flags, reuseaddr_on = 1;        
     new_socket->socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -104,17 +102,17 @@ rudp_socket_t* rudp_linux_socket(
         goto failed;    
     }
     
-    debug_print("rudp_linux_socket() succeed\n");
+    debug_print("socket_linux() succeed\n");
     return new_socket;
     
 failed:
-    debug_print("rudp_linux_socket() failed\n");
+    debug_print("socket_linux() failed\n");
     rudp_close(new_socket, true);
     return 0;    
 }
 
-void rudp_options_free(
-        rudp_options_t* options)
+void socket_options_free(
+        socket_options_t* options)
 {
     if (options) {            
         if (options->conn) {
@@ -129,8 +127,34 @@ void rudp_options_free(
     } 
 }
 
+void socket_queue_free(queue_t* queue) {
+    if (queue) {
+        
+        queue_node_t* node;
+        while (queue_size(queue)) {
+            node = queue_dequeue(queue);
+            
+            packet_free(node->data);            
+            free(node);
+        }
+        
+        queue_free(queue, true);
+    }
+}
+
+void socket_hash_free(hash_node_t* hash) {
+    if (hash) {
+        hash_node_t *current_node, *temp_node;
+        HASH_ITER(hh, hash, current_node, temp_node) {
+            HASH_DEL(hash, current_node);
+            rudp_close(current_node->value, false);
+            free(current_node);
+        }
+    }      
+}
+
 int32_t rudp_close(
-        rudp_socket_t* socket,
+        socket_t* socket,
         bool immediately) 
 {
     debug_print("rudp_close()\n");
@@ -144,21 +168,25 @@ int32_t rudp_close(
             //    pthread_join(socket->thread, 0);
         }
         
-        if (!socket->options->internal) {
-            if (socket->socket_fd) {
-                close(socket->socket_fd);                
+        if (socket->options) {
+            if (!socket->options->internal) {
+                if (socket->socket_fd) {
+                    close(socket->socket_fd);                
+                }
             }
-        }                
+            
+            socket->options->state = STATE_CLOSED; 
+            sem_destroy(&socket->options->state_lock);        
         
-        socket->options->state = STATE_CLOSED; 
-        sem_destroy(&socket->options->state_lock);        
-        
-        rudp_options_free(socket->options);
-        rudp_channel_close(socket);
+            socket_options_free(socket->options);            
+        }                                    
+                
+        socket_queue_free(socket->ready_queue);
 
-        queue_free(socket->in_buffer, !immediately);
-        queue_free(socket->out_buffer, !immediately);                
-        queue_free(socket->ready_queue, !immediately);
+        //socket_hash_free(socket->established_hash);
+        //socket_hash_free(socket->waiting_hash);            
+        
+        channel_free(socket);
         
         if (socket->temp_buffer) {
             free(socket->temp_buffer);
@@ -195,7 +223,7 @@ int32_t rudp_send(
 */
 
 int32_t rudp_connect(
-        rudp_socket_t* socket, 
+        socket_t* socket, 
         const char* addr, 
         uint16_t port)
 {
@@ -223,14 +251,21 @@ int32_t rudp_connect(
         goto failed;
     }
 
-    rudp_socket_t* conn_socket = rudp_channel(socket);    
+    
+    socklen_t addr_length;
+    getsockname(
+            socket->socket_fd, 
+            (struct sockaddr*)&socket->local_addr,
+            &addr_length);
+
+    socket_t* conn_socket = channel(socket);    
     
     if (!conn_socket) { 
         goto failed; 
-    }
+    }        
     
     if (pthread_create(&socket->thread, 0, 
-            rudp_connect_handler, (void*) conn_socket)) {
+            socket_connect_handler, (void*) conn_socket)) {
         goto failed;            
     }
     
@@ -250,7 +285,7 @@ failed:
 }
 
 int32_t rudp_bind(
-        rudp_socket_t* socket,
+        socket_t* socket,
         const char* addr, 
         uint16_t port)
 {  
@@ -282,7 +317,7 @@ failed:
 }
 
 int32_t rudp_listen(
-        rudp_socket_t* socket, 
+        socket_t* socket, 
         uint32_t queue_max)
 {
     debug_print("rudp_listen()\n");
@@ -297,7 +332,7 @@ int32_t rudp_listen(
     socket->options->state = STATE_LISTEN;
     
     if (pthread_create(&socket->thread, 0, 
-            rudp_listen_handler, (void*) socket)) {
+            socket_listen_handler, (void*) socket)) {
         goto failed;                 
     }
     
@@ -310,10 +345,10 @@ failed:
     return RUDP_SOCKET_ERROR;
 }
 
-void* rudp_listen_handler(
+void* socket_listen_handler(
         void* socket) 
 {
-    rudp_socket_t* server_socket = (rudp_socket_t*) socket;         
+    socket_t* server_socket = (socket_t*) socket;         
     uint32_t buffer_size, sockaddr_in_len = sizeof(struct sockaddr_in);
     
     server_socket->temp_buffer_size = 
@@ -335,60 +370,65 @@ void* rudp_listen_handler(
         else if (!buffer_size) { continue; } 
         
         else {
-            rudp_recv_handler(server_socket, 
+            socket_recv_handler(server_socket, 
                     server_socket->temp_buffer, buffer_size);
         }
     }
     
-    debug_print("rudp_listen_handler() succeed\n");
-    pthread_exit(0);        
+    debug_print("socket_listen_handler() succeed\n");
+    pthread_exit(0);    
+    return 0;
     
 failed:
-    debug_print("rudp_listen_handler() failed\n");
+    debug_print("socket_listen_handler() failed\n");
     pthread_exit(0);        
+    return 0;
+    
 }
 
-int32_t rudp_recv_handler(
-        rudp_socket_t* socket,
+int32_t socket_recv_handler(
+        socket_t* socket,
         uint8_t* buffer,
         uint32_t buffer_size) 
 {
-    debug_print("rudp_recv_handler()\n");
+    debug_print("socket_recv_handler()\n");
     
-    rudp_hash_node_t* hash_node;
-    rudp_socket_t* new_socket;
+    hash_node_t* hash_node;
+    socket_t* new_socket;
     
-    if ((hash_node = rudp_channel_waiting(socket)))
-        return rudp_channel_recv_raw(
+    if ((hash_node = channel_waiting(socket)))
+        return channel_recv_raw(
                 hash_node->value, buffer, buffer_size);
     
-    if ((hash_node = rudp_channel_established(socket)))
-        return rudp_channel_recv_raw(
+    if ((hash_node = channel_established(socket)))
+        return channel_recv_raw(
                 hash_node->value, buffer, buffer_size);
 
-    if (!(new_socket = rudp_channel(socket))) {
+    if (!(new_socket = channel(socket))) {
         goto failed;
     }
     
-    if (rudp_channel_recv_raw(new_socket, buffer, buffer_size) < 0) {
+    if (channel_recv_raw(new_socket, buffer, buffer_size) < 0) {
         goto failed;
     }
     
-    debug_print("rudp_recv_handler() succeed\n");
+    debug_print("socket_recv_handler() succeed\n");
     return RUDP_SOCKET_SUCCESS;
     
 failed:
-    debug_print("rudp_recv_handler() failed\n");    
+    debug_print("socket_recv_handler() failed\n");    
     return RUDP_SOCKET_ERROR;      
 }
 
-void* rudp_connect_handler(
+void* socket_connect_handler(
         void* socket) 
 {
-    rudp_socket_t* client_socket = (rudp_socket_t*) socket;         
+    socket_t* client_socket = (socket_t*) socket;         
     uint32_t buffer_size, sockaddr_in_len = sizeof(struct sockaddr_in);
 
-    //if (rudp_channel_start_handshake(socket) < 0) { goto failed; } 
+    if (channel_handshake_start(socket) < 0) { 
+        goto failed; 
+    }       
    
     client_socket->temp_buffer_size = 
             client_socket->options->conn->max_segment_size;
@@ -415,14 +455,14 @@ void* rudp_connect_handler(
     } 
 
 succeed:
-    debug_print("rudp_connect_handler() succeed\n");
+    debug_print("socket_connect_handler() succeed\n");
     
     client_socket->options->state = STATE_CLOSED;
     sem_post(&client_socket->options->state_lock);
     pthread_exit(0);    
     return (void*) RUDP_SOCKET_SUCCESS;
 failed:
-    debug_print("rudp_connect_handler() failed\n");
+    debug_print("socket_connect_handler() failed\n");
     
     client_socket->options->state = STATE_CLOSED;        
     sem_post(&client_socket->options->state_lock);

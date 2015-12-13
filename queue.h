@@ -23,10 +23,10 @@
 #include <stdlib.h>
 #include "linkedlist.h"
 
-typedef llist_t queue_t;
-typedef llist_node_t queue_node_t;
+typedef linkedlist_t queue_t;
+typedef linkedlist_node_t queue_node_t;
 
-queue_t* queue_init();
+queue_t* queue();
 void queue_free(queue_t* queue, bool free_data);
 
 queue_node_t* queue_enqueue(queue_t* queue, void* data);

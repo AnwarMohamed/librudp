@@ -1,38 +1,38 @@
 #include "queue.h"
 
-queue_t* queue_init()
+queue_t* queue()
 {
-    return llist_init();
+    return linkedlist();
 }
 
 void queue_free(
         queue_t* queue, 
         bool  free_data)
 {
-    llist_free(queue, free_data);
+    linkedlist_free(queue, free_data);
 }
 
 queue_node_t* queue_enqueue(
         queue_t* queue, 
         void* data)
 {    
-    return llist_insert_tail(queue, data);
+    return linkedlist_insert_tail(queue, data);
 }
 
 queue_node_t* queue_dequeue(
         queue_t* queue)
 {    
-    return llist_remove_head(queue);
+    return linkedlist_remove_head(queue);
 }
 
 uint8_t queue_empty(
         queue_t* queue)
 {
-    return llist_empty(queue);
+    return linkedlist_empty(queue);
 }
 
 uint32_t queue_size(
         queue_t* queue)
 {
-    return llist_size(queue);
+    return linkedlist_size(queue);
 }

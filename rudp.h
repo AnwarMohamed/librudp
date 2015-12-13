@@ -20,6 +20,7 @@
 #include <stdbool.h>
 #include <sys/ioctl.h>
 #include <signal.h>
+#include <sys/param.h>
 
 #include "queue.h"
 #include "uthash/src/uthash.h"
@@ -28,10 +29,10 @@
 #define RUDP_SOCKET_ERROR         -1
 #define RUDP_SOCKET_SUCCESS        0
 #define RUDP_SOCKET_ACCEPT_SLEEP   5
-#define RUDP_SOCKET_SIGNAL  (SIGRTMAX+SIGRTMIN)/2
+#define RUDP_SOCKET_SIGNAL  SIGRTMIN+2
 
 
-enum rudp_state_t { 
+enum socket_state_t { 
     STATE_LISTEN = 0,
     STATE_SYN_SENT,
     STATE_SYN_RECEIVED,
@@ -45,34 +46,34 @@ enum rudp_state_t {
     STATE_CLOSED,
 };
 
-enum rudp_type_t {
+enum socket_type_t {
     TYPE_GENERIC = 0,
     TYPE_SERVER,
     TYPE_CLIENT,
 };
 
-struct rudp_peer_options_t {
+struct socket_peer_options_t {
     uint8_t max_window_size;
     uint16_t max_segment_size;
 };
 
-struct rudp_options_t {
+struct socket_options_t {
     bool internal;
-    struct rudp_socket_t* parent;
+    struct socket_t* parent;
     
     sem_t state_lock;
-    enum rudp_state_t state;    
-    struct rudp_conn_options_t* conn; 
-    struct rudp_peer_options_t* peer;   
+    enum socket_state_t state;    
+    struct socket_conn_options_t* conn; 
+    struct socket_peer_options_t* peer;   
 };
 
-struct rudp_hash_node_t {
+struct hash_node_t {
     struct sockaddr_in key;
-    struct rudp_socket_t* value;
+    struct socket_t* value;
     UT_hash_handle hh;
 };
 
-struct rudp_conn_options_t {
+struct socket_conn_options_t {
     uint8_t version;    
     uint8_t option_flags;
     
@@ -91,70 +92,93 @@ struct rudp_conn_options_t {
     uint32_t identifier;
 };
 
-struct rudp_socket_t {
-    enum rudp_type_t type;
+struct socket_t {
+    enum socket_type_t type;
     
     int32_t socket_fd;
     struct sockaddr_in local_addr;
-    struct sockaddr_in remote_addr;
+    struct sockaddr_in remote_addr;    
     
-    queue_t* in_buffer;
-    queue_t* out_buffer;
-    
-    struct rudp_hash_node_t* waiting_hash;    
-    struct rudp_hash_node_t* established_hash;
+    struct hash_node_t* waiting_hash;    
+    struct hash_node_t* established_hash;
     
     queue_t* ready_queue;
     
     pthread_t thread;
     
-    struct rudp_options_t *options; 
-    struct rudp_channel_t *channel;
+    struct socket_options_t *options; 
+    struct channel_t *channel;
 
     uint8_t* temp_buffer;
     uint32_t temp_buffer_size;
 };
 
-
-enum rudp_channel_timer_type_t {
-    CHANNEL_TIMER_RETRANS=0,
+struct window_t {
+    queue_t* buffer;
+    uint8_t size;
+    uint8_t max_size;
+    
+    queue_node_t* head;
+    queue_node_t* tail;
 };
 
-struct rudp_channel_timer_t {
-    enum rudp_channel_timer_type_t type;
-    struct rudp_socket_t* socket;
+enum window_type_t {
+    WINDOWS_TYPE_SNW=0,
+    WINDOWS_TYPE_GBN,
+    WINDOWS_TYPE_SR,
+};
+
+typedef struct window_t window_t;
+typedef enum window_type_t window_type_t;
+
+enum timer_type_t {
+    TIMER_RETRANS=0,
+    TIMER_TRANS_STATE,
+    TIMER_CUM_ACK,
+    TIMER_NULL,
+};
+
+struct utimer_t {
+    enum timer_type_t type;
+    struct socket_t* socket;
+    struct packet_t* packet;
     timer_t timer;
     struct sigevent* event;
     struct itimerspec timer_value;
 };
 
-struct rudp_channel_t{    
-    struct rudp_channel_timer_t* timer_null;
-    struct rudp_channel_timer_t* timer_cum_ack;
-    struct rudp_channel_timer_t* timer_trans_state;
+struct channel_t{    
+    struct utimer_t* timer_null;
+    struct utimer_t* timer_cum_ack;
+    struct utimer_t* timer_trans_state;
     
     uint32_t acknowledge;
     uint32_t sequence;
+    
+    window_t* in_window;
+    window_t* out_window;
 };
 
-typedef enum rudp_state_t rudp_state_t;
-typedef struct rudp_socket_t rudp_socket_t;
-typedef struct rudp_options_t rudp_options_t;
+typedef enum socket_state_t socket_state_t;
+typedef struct socket_t socket_t;
+typedef struct socket_options_t socket_options_t;
 
-typedef struct rudp_hash_node_t rudp_hash_node_t;
-typedef struct rudp_conn_options_t rudp_conn_options_t;
-typedef struct rudp_peer_options_t rudp_peer_options_t;
+typedef enum timer_type_t timer_type_t;
 
-typedef struct rudp_socket_t rudp_socket_t;
-typedef struct rudp_options_t rudp_options_t;
-typedef struct rudp_packet_t rudp_packet_t;
-typedef struct rudp_hash_node_t rudp_hash_node_t;
-typedef struct rudp_syn_packet_header_t rudp_syn_packet_header_t;
+typedef struct hash_node_t hash_node_t;
+typedef struct socket_conn_options_t socket_conn_options_t;
+typedef struct socket_peer_options_t socket_peer_options_t;
 
-typedef struct rudp_channel_t rudp_channel_t;
-typedef struct rudp_channel_timer_t rudp_channel_timer_t;
+typedef struct socket_t socket_t;
+typedef struct socket_options_t socket_options_t;
+typedef struct packet_t packet_t;
+typedef struct hash_node_t hash_node_t;
+typedef struct packet_syn_header_t packet_syn_header_t;
 
-struct rudp_packet_header_t {
+typedef struct channel_t channel_t;
+typedef struct utimer_t utimer_t;
+
+struct packet_header_t {
     uint8_t flags;
     uint8_t header_length;
     uint16_t checksum;
@@ -163,7 +187,7 @@ struct rudp_packet_header_t {
     uint32_t acknowledge;    
 };
 
-struct rudp_syn_packet_header_t {
+struct packet_syn_header_t {
     uint8_t version;    
     uint8_t option_flags;
 
@@ -182,12 +206,12 @@ struct rudp_syn_packet_header_t {
     uint32_t identifier;
 };
 
-struct rudp_syn_packet_t {
-    struct rudp_packet_header_t* header;
-    struct rudp_syn_packet_header_t* aux_header;
+struct packet_syn_t {
+    struct packet_header_t* header;
+    struct packet_syn_header_t* aux_header;
 };
 
-enum rudp_packet_type_t {
+enum packet_type_t {
     PACKET_TYPE_SYN=0,
     PACKET_TYPE_SYN_ACK,
     PACKET_TYPE_ACK,
@@ -201,7 +225,7 @@ enum rudp_packet_type_t {
     PACKET_TYPE_UNKNOWN,
 };
 
-enum rudp_packet_flag_t {
+enum packet_flag_t {
     PACKET_FLAG_SYN = 1<<7,
     PACKET_FLAG_ACK = 1<<6,
     PACKET_FLAG_RST = 1<<5,
@@ -212,8 +236,8 @@ enum rudp_packet_flag_t {
     PACKET_FLAG_DATA = 1<<0,
 };
 
-struct rudp_packet_t {
-    enum rudp_packet_type_t type;
+struct packet_t {
+    enum packet_type_t type;
     
     uint8_t* buffer;
     int32_t buffer_size;
@@ -227,28 +251,44 @@ struct rudp_packet_t {
     uint16_t destination_port;
     uint32_t destination_addr;
 
-    struct rudp_channel_timer_t* timer_retrans;
+    struct utimer_t* timer_retrans;
     uint8_t counter_retrans;
     
     bool needs_ack;    
-    struct rudp_packet_t* ack;
+    struct packet_t* ack;
     
     uint8_t* data_buffer;
     uint32_t data_buffer_size;
+    
+    struct packet_header_t* header;
+    struct packet_syn_header_t* syn_header;
+    
+    socket_t* socket;
 };
 
-typedef struct rudp_channel_timer_t rudp_channel_timer_t;
-typedef struct rudp_packet_t rudp_packet_t;
-typedef struct rudp_syn_packet_t rudp_syn_packet_t;
-typedef struct rudp_packet_header_t rudp_packet_header_t;
-typedef struct rudp_syn_packet_header_t rudp_syn_packet_header_t;
-typedef rudp_packet_header_t rudp_rst_packet_t;
-typedef rudp_rst_packet_t rudp_nul_packet_t;
-typedef rudp_nul_packet_t rudp_ack_packet_t;
-typedef enum rudp_packet_flag_t rudp_packet_flag_t;
-typedef enum rudp_packet_type_t rudp_packet_type_t;
+typedef struct utimer_t utimer_t;
+typedef struct packet_t packet_t;
+typedef struct packet_syn_t packet_syn_t;
+typedef struct packet_header_t packet_header_t;
+typedef struct packet_syn_header_t packet_syn_header_t;
+typedef packet_header_t packet_rst_t;
+typedef packet_rst_t packet_nul_t;
+typedef packet_nul_t packet_ack_t;
+typedef enum packet_flag_t packet_flag_t;
+typedef enum packet_type_t packet_type_t;
 
-#define BASE_PACKET_LENGTH sizeof(rudp_packet_header_t)
-#define SYN_PACKET_HEADER_LENGTH sizeof(rudp_syn_packet_header_t)
+#define BASE_PACKET_LENGTH sizeof(packet_header_t)
+#define SYN_PACKET_HEADER_LENGTH sizeof(packet_syn_header_t)
 #define SYN_PACKET_LENGTH BASE_PACKET_LENGTH + \
         SYN_PACKET_HEADER_LENGTH
+        
+
+
+socket_t* rudp_socket(socket_options_t* options);
+int32_t rudp_close(socket_t* socket, bool immediately);
+int32_t rudp_connect(socket_t* socket, const char* addr, uint16_t port);
+int32_t rudp_recv(socket_t* socket, uint8_t* buffer, uint32_t buffer_size);        
+int32_t rudp_send(socket_t* socket, uint8_t* buffer, uint32_t buffer_size);
+int32_t rudp_bind(socket_t* socket, const char* addr, uint16_t port);
+int32_t rudp_listen(socket_t* socket, uint32_t queue_max);
+socket_t* rudp_accept(socket_t* socket);

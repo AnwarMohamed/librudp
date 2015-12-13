@@ -22,34 +22,21 @@
 #include "rudp.h"
 #include "utils.h"
 #include "channel.h"
+#include "packet.h"
 
 
-rudp_socket_t* rudp_socket(rudp_options_t* options);
-rudp_socket_t* rudp_linux_socket(rudp_socket_t* socket);
+socket_t* socket_linux(socket_t* socket);
 
-int32_t rudp_close(rudp_socket_t* socket, bool immediately);
+void* socket_connect_handler(void* socket);
+void* socket_listen_handler(void* socket);
 
-int32_t rudp_recv(rudp_socket_t* socket,
-        uint8_t* buffer, uint32_t buffer_size);
-        
-int32_t rudp_send(rudp_socket_t* socket, 
-        uint8_t* buffer, uint32_t buffer_size);
+socket_state_t socket_state(socket_t* socket);
 
-int32_t rudp_connect(rudp_socket_t* socket, const char* addr, uint16_t port);
-void* rudp_connect_handler(void* socket);
-
-int32_t rudp_bind(rudp_socket_t* socket, const char* addr, uint16_t port);
-
-int32_t rudp_listen(rudp_socket_t* socket, uint32_t queue_max);
-void* rudp_listen_handler(void* socket);
-
-rudp_socket_t* rudp_accept(rudp_socket_t* socket);
-
-rudp_state_t rudp_state(rudp_socket_t* socket);
-
-int32_t rudp_recv_handler(rudp_socket_t* socket, 
+int32_t socket_recv_handler(socket_t* socket, 
         uint8_t* buffer, uint32_t buffer_size);
 
-rudp_options_t* rudp_options();
-int32_t rudp_options_get(rudp_socket_t* socket, rudp_options_t* options);
-void rudp_options_free(rudp_options_t* options);
+socket_options_t* socket_options();
+int32_t socket_options_get(socket_t* socket, socket_options_t* options);
+void socket_options_free(socket_options_t* options);
+
+void socket_timer_handler(union sigval sigval);
