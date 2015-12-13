@@ -42,3 +42,4 @@ rudp-server
 rudp-client
 
 Makefile
+*.mk
