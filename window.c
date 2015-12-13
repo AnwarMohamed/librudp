@@ -23,7 +23,7 @@ void window_max_size_set(
 void window_out_enqueue(
         window_t* window,
         packet_t* packet) 
-{
+{    
     queue_enqueue(window->buffer, packet);    
     window_expand(window);
 }
@@ -35,10 +35,10 @@ void window_expand(window_t* window) {
         window->head = 0;
         window->tail = 0;
     } else {
-        
+         
         window->size = MIN(window->max_size, window->buffer->size);
         window->head = window->buffer->head;
-        window->tail = window_get(window, window->size-1);
+        window->tail = window_get(window, window->size-1);                
         
         packet_t* packet = (packet_t*) window->head->data;
         queue_node_t* node = window->head;        
@@ -65,8 +65,18 @@ bool packet_ack_valid(
         packet_t* packet,
         packet_t* ack_packet)
 {
-    return ack_packet->header->acknowledge == packet->header->sequence + 
-            (packet->data_buffer_size ? packet->data_buffer_size: 1);
+    if (packet->type == PACKET_TYPE_SYN && 
+            ack_packet->type == PACKET_TYPE_SYN_ACK) {
+        return ack_packet->header->acknowledge == 
+            (packet->header->sequence + 
+            (packet->data_buffer_size ? packet->data_buffer_size: 1));
+    } else {
+    
+        return ack_packet->header->acknowledge == 
+            (packet->header->sequence + 
+            (packet->data_buffer_size ? packet->data_buffer_size: 1)) &&
+            ack_packet->header->sequence == packet->header->acknowledge;        
+    }
 }
 
 queue_node_t* window_get(
@@ -98,7 +108,7 @@ queue_node_t* window_get(
 
 void window_slide(
         window_t* window)
-{
+{    
     queue_node_t* node = queue_dequeue(window->buffer);  
     packet_t* packet = (packet_t*) node->data;        
     
@@ -112,7 +122,7 @@ void window_slide(
 bool window_ack_set(
         window_t* window,
         packet_t* ack_packet)
-{
+{    
     if (!window || !ack_packet ||
         !window->size || !window->buffer->size) {
         return false;
@@ -126,7 +136,7 @@ bool window_ack_set(
         
         packet = (packet_t*) node->data;
         
-        if (packet->needs_ack && packet_ack_valid(packet, ack_packet)) {
+        if (packet->needs_ack && packet_ack_valid(packet, ack_packet)) {                        
             
             packet->needs_ack = false;
             utimer_set(packet->timer_retrans, 0);

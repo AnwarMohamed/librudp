@@ -182,7 +182,7 @@ struct packet_header_t {
     uint8_t flags;
     uint8_t header_length;
     uint16_t checksum;
-    uint16_t window_size;
+    //uint16_t window_size;
     uint32_t sequence;
     uint32_t acknowledge;    
 };

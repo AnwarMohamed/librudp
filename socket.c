@@ -69,9 +69,15 @@ socket_options_t* socket_options()
     
     options->conn->version = 1;    
     options->conn->max_segment_size = 1024;
-    options->conn->max_retransmissions = 5;
-    options->conn->max_window_size = 10;
-    options->conn->timeout_retransmission = 300;    
+    options->conn->max_retransmissions = 2;
+    options->conn->max_window_size = 32;
+    options->conn->max_cum_ack = 3;
+    options->conn->max_out_sequences = 3;
+    options->conn->max_auto_reset = 3;
+    options->conn->timeout_retransmission = 600;
+    options->conn->timeout_cum_ack = 300;
+    options->conn->timeout_null = 2000;
+    options->conn->timeout_trans_state = 1000;
     options->conn->identifier = rudp_random();
     
     options->state = STATE_CLOSED;
@@ -349,8 +355,9 @@ failed:
 void* socket_listen_handler(
         void* socket) 
 {
+    int32_t buffer_size;
     socket_t* server_socket = (socket_t*) socket;         
-    uint32_t buffer_size, sockaddr_in_len = sizeof(struct sockaddr_in);
+    uint32_t sockaddr_in_len = sizeof(struct sockaddr_in);
     
     server_socket->temp_buffer_size = 
             server_socket->options->conn->max_segment_size;
@@ -424,8 +431,9 @@ failed:
 void* socket_connect_handler(
         void* socket) 
 {
+    int32_t buffer_size;
     socket_t* client_socket = (socket_t*) socket;         
-    uint32_t buffer_size, sockaddr_in_len = sizeof(struct sockaddr_in);
+    uint32_t sockaddr_in_len = sizeof(struct sockaddr_in);
 
     if (channel_handshake_start(socket) < 0) { 
         goto failed; 
@@ -441,10 +449,13 @@ void* socket_connect_handler(
         
         memset(client_socket->temp_buffer, 0, client_socket->temp_buffer_size);        
         
-        buffer_size = recvfrom(client_socket->socket_fd, 
-                client_socket->temp_buffer, client_socket->temp_buffer_size, 0, 
-                (struct sockaddr *) &client_socket->remote_addr, 
-                &sockaddr_in_len);
+        //buffer_size = recvfrom(client_socket->socket_fd, 
+        //        client_socket->temp_buffer, client_socket->temp_buffer_size, 0, 
+        //        (struct sockaddr *) &client_socket->remote_addr, 
+        //        &sockaddr_in_len);
+        
+        buffer_size = recv(client_socket->socket_fd, 
+                client_socket->temp_buffer, client_socket->temp_buffer_size, 0);
         
         if (buffer_size < 0) { goto failed; }     
         else if (!buffer_size) { continue; } 

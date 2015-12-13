@@ -64,11 +64,11 @@ failed:
 void packet_print(packet_t* packet) {
     printf(
         "%s"
-        "%d.%d.%d.%d:%d ==> %d.%d.%d.%d:%d\t"
-        "seq: 0x%08x, ack: 0x%08x\n" 
-        "%s",                       
+        "%d.%d.%d.%d:%d\t==> %d.%d.%d.%d:%d\t"
+        "seq: 0x%08x, ack: 0x%08x" 
+        "%s \n",                       
         
-        packet->counter_retrans ? ANSI_COLOR_YELLOW: ANSI_COLOR_GREEN,
+        packet->counter_retrans ? ANSI_COLOR_RED: ANSI_COLOR_GREEN,
 
         packet->source_addr >> 24 & 0xFF,
         packet->source_addr >> 16 & 0xFF,
@@ -218,7 +218,11 @@ int32_t packet_free(
         }
                 
         utimer_free(packet->timer_retrans);        
-            
+        
+        if (packet->ack) {
+            packet_free(packet->ack);
+        }
+                    
         free(packet);
     }
 }
@@ -276,28 +280,25 @@ bool packet_checksum_check(
             packet_checksum(buffer, buffer_size);
 }
 
-
-
-
 packet_t* packet_buffered(
         socket_t* socket, 
         uint8_t* buffer, 
         uint32_t buffer_size)
 {    
-    debug_print("packet_buffered()\n");
+    debug_print("packet_buffered()\n");        
     
     packet_type_t type = packet_type_check(buffer, buffer_size);
     
     if (type == PACKET_TYPE_UNKNOWN) { 
         goto failed; 
-    }
+    }        
     
     packet_t* new_packet = packet(type, socket);
     
     if (!new_packet) { 
         goto failed; 
     }
-    
+        
     packet_header_t *header = (packet_header_t*) buffer;
     
     memcpy(new_packet->header, header, BASE_PACKET_LENGTH);
@@ -343,7 +344,7 @@ packet_type_t packet_type_check(
         uint32_t buffer_size)
 {
     if (!buffer || buffer_size < BASE_PACKET_LENGTH)
-        return PACKET_TYPE_UNKNOWN;
+        return PACKET_TYPE_UNKNOWN;                        
             
     if (*buffer == PACKET_FLAG_SYN) {
         if (buffer_size == SYN_PACKET_LENGTH)

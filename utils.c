@@ -81,10 +81,10 @@ void utimer_set(
         utimer_t* utimer,
         uint32_t interval)
 {
-    utimer->timer_value.it_value.tv_sec = 0;
-    utimer->timer_value.it_value.tv_nsec = interval * 1000;
-    utimer->timer_value.it_interval.tv_sec = 0;
-    utimer->timer_value.it_interval.tv_nsec = interval * 1000;
+    utimer->timer_value.it_value.tv_sec = interval/1000;
+    utimer->timer_value.it_value.tv_nsec = (interval % 1000) * 1000;
+    utimer->timer_value.it_interval.tv_sec = interval/1000;
+    utimer->timer_value.it_interval.tv_nsec = (interval % 1000) * 1000;
     
     if (timer_settime(utimer->timer, 0, &utimer->timer_value, 0) < 0) {
         debug_print("rudp_timer_set() failed\n");
