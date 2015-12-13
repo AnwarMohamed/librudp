@@ -127,7 +127,9 @@ bool window_ack_set(
         packet = (packet_t*) node->data;
         
         if (packet->needs_ack && packet_ack_valid(packet, ack_packet)) {
+            
             packet->needs_ack = false;
+            utimer_set(packet->timer_retrans, 0);
             
             if (window->buffer->head == node) {
                 window_slide(window);

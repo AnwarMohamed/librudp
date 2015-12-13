@@ -450,8 +450,8 @@ void* socket_connect_handler(
         else if (!buffer_size) { continue; } 
         
         else {
-            //rudp_recv_handler(client_socket, 
-            //        client_socket->temp_buffer, buffer_size);
+            socket_recv_handler(client_socket, 
+                    client_socket->temp_buffer, buffer_size);
         }
     } 
 

@@ -1,1 +1,1 @@
-./build/debug/socket.c.o ./build/debug/linkedlist.c.o ./build/debug/queue.c.o ./build/debug/channel.c.o ./build/debug/packet.c.o ./build/debug/utils.c.o ./build/debug/window.c.o
+./build/release/socket.c.o ./build/release/linkedlist.c.o ./build/release/queue.c.o ./build/release/channel.c.o ./build/release/packet.c.o ./build/release/utils.c.o ./build/release/window.c.o

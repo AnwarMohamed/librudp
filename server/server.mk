@@ -2,12 +2,12 @@
 ## Auto Generated makefile by CodeLite IDE
 ## any manual changes will be erased      
 ##
-## Debug
+## Release
 ProjectName            :=server
-ConfigurationName      :=Debug
+ConfigurationName      :=Release
 WorkspacePath          := "/media/Coding/Github/librudp"
 ProjectPath            := "/media/Coding/Github/librudp/server"
-IntermediateDirectory  :=./build/debug
+IntermediateDirectory  :=./build/release
 OutDir                 := $(IntermediateDirectory)
 CurrentFileName        :=
 CurrentFilePath        :=
@@ -28,19 +28,19 @@ LibraryPathSwitch      :=-L
 PreprocessorSwitch     :=-D
 SourceSwitch           :=-c 
 OutputFile             :=./../rudp-server
-Preprocessors          :=$(PreprocessorSwitch)DEBUG_MODE $(PreprocessorSwitch)_POSIX_TIMERS 
+Preprocessors          :=$(PreprocessorSwitch)_POSIX_TIMERS 
 ObjectSwitch           :=-o 
 ArchiveOutputSwitch    := 
 PreprocessOnlySwitch   :=-E
 ObjectsFileList        :="server.txt"
 PCHCompileFlags        :=
 MakeDirCommand         :=mkdir -p
-LinkOptions            :=  
+LinkOptions            :=  --disable-linker-build-id -fvisibility=hidden 
 IncludePath            :=  $(IncludeSwitch). $(IncludeSwitch). $(IncludeSwitch)./../ 
 IncludePCH             := 
 RcIncludePath          := 
-Libs                   := $(LibrarySwitch)rudp $(LibrarySwitch)pthread $(LibrarySwitch)event $(LibrarySwitch)rt 
-ArLibs                 :=  "rudp" "pthread" "event" "rt" 
+Libs                   := $(LibrarySwitch)rudp $(LibrarySwitch)pthread $(LibrarySwitch)event 
+ArLibs                 :=  "rudp" "pthread" "event" 
 LibPath                := $(LibraryPathSwitch). $(LibraryPathSwitch)../ 
 
 ##
@@ -50,8 +50,8 @@ LibPath                := $(LibraryPathSwitch). $(LibraryPathSwitch)../
 AR       := /usr/bin/ar rcu
 CXX      := /usr/bin/g++
 CC       := /usr/bin/gcc
-CXXFLAGS :=  -g -O0 -Wall -std=c11 $(Preprocessors)
-CFLAGS   :=  -g -O0 -Wall -std=c11 -D_POSIX_C_SOURCE=200809L $(Preprocessors)
+CXXFLAGS :=  -O2 -Wall -std=c11 $(Preprocessors)
+CFLAGS   :=  -s -O2 -Wall -std=c11 -D_BSD_SOURCE -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE $(Preprocessors)
 ASFLAGS  := 
 AS       := /usr/bin/as
 
@@ -78,12 +78,17 @@ $(OutputFile): $(IntermediateDirectory)/.d $(Objects)
 	@echo $(Objects0)  > $(ObjectsFileList)
 	$(LinkerName) $(OutputSwitch)$(OutputFile) @$(ObjectsFileList) $(LibPath) $(Libs) $(LinkOptions)
 
+PostBuild:
+	@echo Executing Post Build commands ...
+	strip -s -R .comment ../rudp-server
+	@echo Done
+
 MakeIntermediateDirs:
-	@test -d ./build/debug || $(MakeDirCommand) ./build/debug
+	@test -d ./build/release || $(MakeDirCommand) ./build/release
 
 
 $(IntermediateDirectory)/.d:
-	@test -d ./build/debug || $(MakeDirCommand) ./build/debug
+	@test -d ./build/release || $(MakeDirCommand) ./build/release
 
 PreBuild:
 
@@ -105,6 +110,6 @@ $(IntermediateDirectory)/main.c$(PreprocessSuffix): main.c
 ## Clean
 ##
 clean:
-	$(RM) -r ./build/debug/
+	$(RM) -r ./build/release/
 
 

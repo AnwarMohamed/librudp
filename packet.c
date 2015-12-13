@@ -45,6 +45,7 @@ packet_t* packet(
     case PACKET_TYPE_NULL:
     case PACKET_TYPE_RESET:
     case PACKET_TYPE_SYN:
+    case PACKET_TYPE_SYN_ACK:
     case PACKET_TYPE_TCS:
         new_packet->needs_ack = true;
     }
