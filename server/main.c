@@ -38,18 +38,19 @@ int main(int argc, char **argv)
     if (rudp_listen(server_socket, BACKLOG) < 0) {
         goto cleanup;
     }
-/*    
-    rudp_socket_t* client_socket = NULL;;
+    
+    socket_t* client_socket = NULL;;
         
     client_socket = rudp_accept(server_socket);
     
     if (!client_socket) {
-        //printf("rudp_accept() succeed\n");
+        goto cleanup; 
     } else {
-        //printf("rudp_accept() failed\n");
-        goto cleanup;               
+        
+        printf("Accepted\n");
+        
     }    
-*/
+
 cleanup:    
     rudp_close(server_socket, 0);    
     return 0;

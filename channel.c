@@ -17,8 +17,8 @@ socket_t* channel(socket_t* socket)
     
     channel->sequence = rudp_sequence(socket);
     
-    channel->out_window = window(10);
-    channel->in_window = window(10);
+    channel->out_window = window(socket->options->conn->max_window_size);
+    channel->in_window = window(socket->options->conn->max_window_size);
     
     if (socket->type == TYPE_SERVER) {                
         socket_options_t* new_socket_options = socket_options();
@@ -132,10 +132,8 @@ int32_t channel_handshake_start(
         goto failed; 
     }
 
-    if (channel_send_packet(syn_packet) < 0) {
-        goto failed;        
-    }
-    
+    window_out_enqueue(socket->channel->out_window, syn_packet);
+
     socket->options->state = STATE_SYN_SENT;
     
     debug_print("channel_handshake_start() succeed\n");
@@ -191,59 +189,56 @@ failed:
     return RUDP_SOCKET_ERROR;            
 }
  
-/*
-int32_t rudp_channel_send_ack(
-        rudp_socket_t* socket,
-        rudp_packet_t* packet)
+
+int32_t channel_send_ack(
+        socket_t* socket,
+        packet_t* recv_packet)
 {
-    debug_print("rudp_channel_send_ack()\n");    
+    debug_print("channel_send_ack()\n");    
     
-    if (!packet->ack) {
-        switch(packet->type) {
+    if (!recv_packet->ack) {
+        switch(recv_packet->type) {
         case PACKET_TYPE_SYN:
-            packet->ack = rudp_packet(PACKET_TYPE_SYN_ACK, socket);
+            recv_packet->ack = packet(PACKET_TYPE_SYN_ACK, socket);
             break;
         case PACKET_TYPE_SYN_ACK:        
         case PACKET_TYPE_DATA:
         case PACKET_TYPE_EACK:
         case PACKET_TYPE_NULL:
-            packet->ack = rudp_packet(PACKET_TYPE_ACK, socket);
+            recv_packet->ack = packet(PACKET_TYPE_ACK, socket);
             break;
         case PACKET_TYPE_RESET:
-            packet->ack = rudp_packet(PACKET_TYPE_RESET_ACK, socket);
+            recv_packet->ack = packet(PACKET_TYPE_RESET_ACK, socket);
             break;
         case PACKET_TYPE_TCS:
-            packet->ack = rudp_packet(PACKET_TYPE_TCS_ACK, socket);
+            recv_packet->ack = packet(PACKET_TYPE_TCS_ACK, socket);
             break;
         default:
             goto failed; 
-        }
+        } 
         
-        if (!packet->ack) { goto failed; }                        
-    }
-    
-    rudp_packet_header_t* header = 
-            (rudp_packet_header_t*) packet->buffer;
-    rudp_packet_header_t* ack_header = 
-            (rudp_packet_header_t*) packet->ack->buffer;
+        if (!recv_packet->ack) { goto failed; }                        
+    }    
             
-    ack_header->sequence = (packet->ack->type == PACKET_TYPE_SYN_ACK ?
-            socket->channel->sequence: header->acknowledge);
-    ack_header->acknowledge = header->sequence + 
-            (packet->data_buffer_size ? packet->data_buffer_size: 1);
+    recv_packet->ack->header->sequence = 
+            (recv_packet->ack->type == PACKET_TYPE_SYN_ACK ?
+            socket->channel->sequence: recv_packet->header->acknowledge);
+            
+    recv_packet->ack->header->acknowledge = recv_packet->header->sequence + 
+            (recv_packet->data_buffer_size ? recv_packet->data_buffer_size: 1);
     
-    rudp_packet_add_checksum(packet->ack);
+    packet_checksum_add(recv_packet->ack);
     
-    if (rudp_channel_send_packet(socket, packet->ack) < 0)
-        goto failed;   
+    window_out_enqueue(socket->channel->out_window, recv_packet->ack);  
 
-    debug_print("rudp_channel_send_ack() succeed\n");
+    debug_print("channel_send_ack() succeed\n");
     return RUDP_SOCKET_SUCCESS;
+    
 failed:
-    debug_print("rudp_channel_send_ack() failed\n");
+    debug_print("channel_send_ack() failed\n");
     return RUDP_SOCKET_ERROR;
 }
-*/
+
 
 int32_t channel_send_packet( 
         packet_t* packet)
@@ -319,72 +314,73 @@ int32_t channel_recv_null(
         packet_t* packet)
 {
 }
-/*
-int32_t rudp_channel_recv_syn(
-        rudp_socket_t* socket,
-        rudp_packet_t* packet)
+
+int32_t channel_recv_syn(
+        socket_t* socket,
+        packet_t* packet)
 {
-    debug_print("rudp_channel_recv_syn()\n");
+    debug_print("channel_recv_syn()\n");
     
     if (socket->options->state != STATE_LISTEN)
-        goto failed;
-            
-    rudp_packet_header_t* header = (rudp_packet_header_t*) packet->buffer;
-    rudp_syn_packet_header_t* syn_header =  
-            (rudp_syn_packet_header_t*) (packet->buffer + BASE_PACKET_LENGTH);
+        goto failed;            
         
-    socket->channel->acknowledge = header->sequence + 1;
+    socket->channel->acknowledge = packet->header->sequence + 1;
     
-    socket->options->conn->identifier = syn_header->identifier;
-    socket->options->conn->option_flags = syn_header->option_flags;
+    printf("%08x\n", socket->channel->acknowledge);
+    
+    socket->options->conn->identifier = packet->syn_header->identifier;
+    socket->options->conn->option_flags = packet->syn_header->option_flags;
     
     socket->options->conn->max_auto_reset = 
             MIN(socket->options->conn->max_auto_reset, 
-            syn_header->max_auto_reset);
+            packet->syn_header->max_auto_reset);
     
     socket->options->conn->max_cum_ack = 
             MIN(socket->options->conn->max_cum_ack, 
-            syn_header->max_cum_ack);    
+            packet->syn_header->max_cum_ack);    
  
-    socket->options->conn->max_window_size =  syn_header->max_window_size;    
+    socket->options->conn->max_window_size =  
+            packet->syn_header->max_window_size;
  
     socket->options->conn->max_retransmissions = 
             MIN(socket->options->conn->max_retransmissions, 
-            syn_header->max_retransmissions);    
+            packet->syn_header->max_retransmissions);    
  
     socket->options->conn->max_out_sequences = 
             MIN(socket->options->conn->max_out_sequences, 
-            syn_header->max_out_sequences);   
+            packet->syn_header->max_out_sequences);   
 
     socket->options->conn->timeout_cum_ack = 
             MIN(socket->options->conn->timeout_cum_ack, 
-            syn_header->timeout_cum_ack);   
+            packet->syn_header->timeout_cum_ack);   
 
     socket->options->conn->timeout_null = 
             MIN(socket->options->conn->timeout_null, 
-            syn_header->timeout_null);  
+            packet->syn_header->timeout_null);  
             
     socket->options->conn->timeout_retransmission = 
             MIN(socket->options->conn->timeout_retransmission, 
-            syn_header->timeout_retransmission);             
+            packet->syn_header->timeout_retransmission);             
 
     socket->options->conn->timeout_trans_state = 
             MIN(socket->options->conn->timeout_trans_state, 
-            syn_header->timeout_trans_state);                
+            packet->syn_header->timeout_trans_state);                
+        
+    if (channel_send_ack(socket, packet) < 0) {
+        goto failed;        
+    }
     
-    if (rudp_channel_send_ack(socket, packet) < 0)
-        goto failed;
-
     socket->options->state = STATE_SYN_RECEIVED;
-    
-succeed:   
-    debug_print("rudp_channel_recv_syn() succeed\n");
+      
+    debug_print("channel_recv_syn() succeed\n");
     return RUDP_SOCKET_SUCCESS; 
+    
 failed:    
-    debug_print("rudp_channel_recv_syn() failed\n");
+    debug_print("channel_recv_syn() failed\n");
     return RUDP_SOCKET_ERROR;
 }
 
+/*
 int32_t rudp_channel_recv_syn_ack(
         rudp_socket_t* socket,
         rudp_packet_t* packet)
@@ -470,11 +466,21 @@ int32_t channel_recv_raw(
         goto failed; 
     }
     
+    packet->source_addr = 
+            ntohl(packet->socket->remote_addr.sin_addr.s_addr);
+    packet->source_port = 
+            ntohs(packet->socket->remote_addr.sin_port);
+            
+    packet->destination_addr = 
+            ntohl(packet->socket->local_addr.sin_addr.s_addr);
+    packet->destination_port = 
+            ntohs(packet->socket->local_addr.sin_port);    
+    
     packet_print(packet);
     
     switch(packet->type) {
     case PACKET_TYPE_ACK:
-        if (channel_recv_ack(socket, packet) < 0)
+        if (!window_ack_set(socket->channel->out_window, packet))
             goto failed;        
         break;
     case PACKET_TYPE_DATA:
@@ -498,8 +504,8 @@ int32_t channel_recv_raw(
             goto failed;    
         break;
     case PACKET_TYPE_SYN:
-        //if (rudp_channel_recv_syn(socket, packet) < 0)
-        //    goto failed;        
+        if (channel_recv_syn(socket, packet) < 0)
+            goto failed;        
         break;
     case PACKET_TYPE_SYN_ACK:
         //if (rudp_channel_recv_syn_ack(socket, packet) < 0)

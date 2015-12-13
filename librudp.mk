@@ -2,12 +2,12 @@
 ## Auto Generated makefile by CodeLite IDE
 ## any manual changes will be erased      
 ##
-## Release
+## Debug
 ProjectName            :=librudp
-ConfigurationName      :=Release
+ConfigurationName      :=Debug
 WorkspacePath          := "/media/Coding/Github/librudp"
 ProjectPath            := "/media/Coding/Github/librudp"
-IntermediateDirectory  :=./build/release
+IntermediateDirectory  :=./build/debug
 OutDir                 := $(IntermediateDirectory)
 CurrentFileName        :=
 CurrentFilePath        :=
@@ -28,14 +28,14 @@ LibraryPathSwitch      :=-L
 PreprocessorSwitch     :=-D
 SourceSwitch           :=-c 
 OutputFile             :=./$(ProjectName).so
-Preprocessors          :=$(PreprocessorSwitch)_BSD_SOURCE $(PreprocessorSwitch)_POSIX_C_SOURCE=200809L $(PreprocessorSwitch)_XOPEN_SOURCE $(PreprocessorSwitch)_POSIX_TIMERS 
+Preprocessors          :=$(PreprocessorSwitch)DEBUG_MODE $(PreprocessorSwitch)_POSIX_TIMERS 
 ObjectSwitch           :=-o 
 ArchiveOutputSwitch    := 
 PreprocessOnlySwitch   :=-E
 ObjectsFileList        :="librudp.txt"
 PCHCompileFlags        :=
 MakeDirCommand         :=mkdir -p
-LinkOptions            :=  -s -O2 -fvisibility=hidden --disable-linker-build-id -Wl,-soname=librudp.so -Wl,--version-script=librudp.expmap -fvisibility-inlines-hidden -Wl,--gc-sections
+LinkOptions            :=  
 IncludePath            :=  $(IncludeSwitch). $(IncludeSwitch). 
 IncludePCH             := 
 RcIncludePath          := 
@@ -50,8 +50,8 @@ LibPath                := $(LibraryPathSwitch).
 AR       := /usr/bin/ar rcu
 CXX      := /usr/bin/g++
 CC       := /usr/bin/gcc
-CXXFLAGS :=  -std=c11 -fPIC -s -ffunction-sections -fdata-sections $(Preprocessors)
-CFLAGS   :=  -std=c11 -fPIC -s -ffunction-sections -fdata-sections $(Preprocessors)
+CXXFLAGS :=  -g -std=c11 -fPIC $(Preprocessors)
+CFLAGS   :=  -g -std=c11 -fPIC -D_BSD_SOURCE -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE $(Preprocessors)
 ASFLAGS  := 
 AS       := /usr/bin/as
 
@@ -77,21 +77,15 @@ $(OutputFile): $(IntermediateDirectory)/.d $(Objects)
 	@echo "" > $(IntermediateDirectory)/.d
 	@echo $(Objects0)  > $(ObjectsFileList)
 	$(SharedObjectLinkerName) $(OutputSwitch)$(OutputFile) @$(ObjectsFileList) $(LibPath) $(Libs) $(LinkOptions)
-	@$(MakeDirCommand) "/media/Coding/Github/librudp/.build-release"
-	@echo rebuilt > "/media/Coding/Github/librudp/.build-release/librudp"
-
-PostBuild:
-	@echo Executing Post Build commands ...
-	strip --strip-all --discard-all ./librudp.so
-	strip -R .comment -R .note -R .note.ABI-tag ./librudp.so
-	@echo Done
+	@$(MakeDirCommand) "/media/Coding/Github/librudp/.build-debug"
+	@echo rebuilt > "/media/Coding/Github/librudp/.build-debug/librudp"
 
 MakeIntermediateDirs:
-	@test -d ./build/release || $(MakeDirCommand) ./build/release
+	@test -d ./build/debug || $(MakeDirCommand) ./build/debug
 
 
 $(IntermediateDirectory)/.d:
-	@test -d ./build/release || $(MakeDirCommand) ./build/release
+	@test -d ./build/debug || $(MakeDirCommand) ./build/debug
 
 PreBuild:
 
@@ -161,6 +155,6 @@ $(IntermediateDirectory)/window.c$(PreprocessSuffix): window.c
 ## Clean
 ##
 clean:
-	$(RM) -r ./build/release/
+	$(RM) -r ./build/debug/
 
 

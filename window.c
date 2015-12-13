@@ -11,6 +11,15 @@ window_t* window(
     return new_window;
 }
 
+void window_max_size_set(
+        window_t* window,
+        uint8_t max_size) 
+{
+    if (window) {
+        window->max_size = max_size;
+    }
+}
+
 void window_out_enqueue(
         window_t* window,
         packet_t* packet) 
@@ -100,13 +109,13 @@ void window_slide(
     window_expand(window);    
 }
 
-void window_ack_set(
+bool window_ack_set(
         window_t* window,
         packet_t* ack_packet)
 {
     if (!window || !ack_packet ||
         !window->size || !window->buffer->size) {
-        return;
+        return false;
     }
     
     queue_node_t* node = window->buffer->head;
@@ -124,12 +133,14 @@ void window_ack_set(
                 window_slide(window);
             }
             
-            return;
+            return true;
         }
         
         node_count++;
         node = node->next;
-    }    
+    }   
+
+    return false;
 }
 
 bool window_ack_check(

@@ -70,6 +70,7 @@ socket_options_t* socket_options()
     options->conn->version = 1;    
     options->conn->max_segment_size = 1024;
     options->conn->max_retransmissions = 5;
+    options->conn->max_window_size = 10;
     options->conn->timeout_retransmission = 300;    
     options->conn->identifier = rudp_random();
     
@@ -471,19 +472,18 @@ failed:
     return (void*) RUDP_SOCKET_ERROR;
 }
 
-/*
-rudp_socket_t* rudp_accept(
-        rudp_socket_t* socket)
+socket_t* rudp_accept(
+        socket_t* socket)
 {
     if (!socket || socket->options->state != STATE_LISTEN)
-        return (rudp_socket_t*) RUDP_SOCKET_ERROR;        
+        return 0;        
     
     sem_wait(&socket->options->state_lock);
     
-    return (rudp_socket_t*) queue_dequeue(
-            socket->ready_queue)->data; 
+    return (socket_t*) queue_dequeue(socket->ready_queue)->data;
 }
 
+/*
 rudp_state_t rudp_state(
         rudp_socket_t* socket)
 {
