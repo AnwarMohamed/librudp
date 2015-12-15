@@ -3,7 +3,8 @@
 
 packet_t* packet(
         packet_type_t type, 
-        socket_t* socket)
+        socket_t* socket,
+        bool out)
 {        
     debug_print("packet()\n");        
     
@@ -30,7 +31,7 @@ packet_t* packet(
     
     new_packet->buffer = calloc(new_packet->buffer_size, sizeof(uint8_t));        
 
-    if (packet_header_set(socket, new_packet) < 0) { 
+    if (packet_header_set(socket, new_packet, out) < 0) { 
         goto failed; 
     }
 
@@ -50,44 +51,90 @@ packet_t* packet(
         new_packet->needs_ack = true;
     }
 
-    debug_print("packet() succeed\n");
+    success_print("packet() succeed\n");
     return new_packet;
     
 failed:
-    if (new_packet)
-        packet_free(new_packet);    
+    if (new_packet) {
+        packet_free(new_packet);  
+        new_packet = 0;
+    }
         
-    debug_print("packet() failed\n");
+    error_print("packet() failed\n");
     return 0;    
 }
 
-void packet_print(packet_t* packet) {
+void packet_print(packet_t* packet) { 
+    //return;   
     printf(
-        "%s"
-        "%d.%d.%d.%d:%d\t==> %d.%d.%d.%d:%d\t"
-        "seq: 0x%08x, ack: 0x%08x" 
-        "%s \n",                       
         
-        packet->counter_retrans ? ANSI_COLOR_RED: ANSI_COLOR_GREEN,
+        "[" COLOR_BLUE_B "%s" COLOR_RESET "] "
+        COLOR_RED "seq: " COLOR_RESET "0x%08X " 
+        COLOR_RED "ack: " COLOR_RESET "0x%08X "
+        COLOR_RED "chk: " COLOR_RESET "0x%04X "
+        
+        "%s"
+        " %d.%d.%d.%d"
+        COLOR_RESET        
+        ":"         
+        "%s"
+        "%d" 
+        COLOR_RESET 
+        "\t=> "
+        "%s"
+        "%d.%d.%d.%d"
+        COLOR_RESET 
+        ":"         
+        "%s"
+        "%d" 
+        COLOR_RESET        
+        "\n",                       
+        
+        packet->type == PACKET_TYPE_ACK ? "ACK":
+        packet->type == PACKET_TYPE_DATA ? "DTA":
+        packet->type == PACKET_TYPE_EACK ? "ECK":
+        packet->type == PACKET_TYPE_NULL ? "NUL":
+        packet->type == PACKET_TYPE_RESET ? "RST":
+        packet->type == PACKET_TYPE_RESET_ACK ? "RCK":
+        packet->type == PACKET_TYPE_SYN ? "SYN":
+        packet->type == PACKET_TYPE_SYN_ACK ? "SCK":
+        packet->type == PACKET_TYPE_TCS ? "TCS":
+        packet->type == PACKET_TYPE_TCS_ACK ? "TCK": "UKN",
+
+        packet->header->sequence, 
+        packet->header->acknowledge,
+        packet->header->checksum,
+
+        packet->counter_retrans > 0 ? COLOR_RED_B: COLOR_GREEN,
 
         packet->source_addr >> 24 & 0xFF,
         packet->source_addr >> 16 & 0xFF,
         packet->source_addr >> 8 & 0xFF,
-        packet->source_addr & 0xFF,        
+        packet->source_addr & 0xFF,   
+
+        packet->counter_retrans > 0 ? COLOR_RED_B: COLOR_GREEN,
+     
         packet->source_port, 
+     
+        packet->counter_retrans > 0 ? COLOR_RED_B: COLOR_GREEN,
      
         packet->destination_addr >> 24 & 0xFF, 
         packet->destination_addr >> 16 & 0xFF,
         packet->destination_addr >> 8 & 0xFF,
         packet->destination_addr & 0xFF,
-        packet->destination_port,                     
 
-        packet->header->sequence, packet->header->acknowledge,
-        
-        ANSI_COLOR_RESET);
+        packet->counter_retrans > 0 ? COLOR_RED_B: COLOR_GREEN,
+
+        packet->destination_port);
 }
 
 void packet_timeout(utimer_t* timer) {
+    debug_print("packet_timeout()\n");
+    
+    if (!timer || !timer->packet || !timer->socket) {    
+        goto failed;
+    }
+    
     if (timer->packet->counter_retrans >= 
         timer->socket->options->conn->max_retransmissions) {
                 
@@ -95,16 +142,28 @@ void packet_timeout(utimer_t* timer) {
         sem_post(&timer->socket->options->state_lock);
                 
         utimer_set(timer, 0);
+        
+        channel_timeout(timer->socket);
     } else {
         timer->packet->counter_retrans++;
         channel_send_packet(timer->packet);
+    }
+
+    success_print("packet_timeout() succeed\n");
+    return;
+failed:
+    error_print("packet_timeout() failed\n");
+    
+    if (timer) {
+        utimer_set(timer, 0);        
     }    
 }
 
 int32_t packet_data_set(
         packet_t* packet, 
         uint8_t* buffer, 
-        uint32_t buffer_size) 
+        uint32_t buffer_size,
+        bool checksum)
 {
     debug_print("packet_data_set()\n");
     
@@ -115,31 +174,53 @@ int32_t packet_data_set(
     packet->buffer_size = BASE_PACKET_LENGTH + buffer_size;
     packet->buffer = realloc(packet->buffer, packet->buffer_size);
     
+    packet->header = (packet_header_t*) packet->buffer;
+    
     packet->data_buffer_size = buffer_size;
     packet->data_buffer = packet->buffer + BASE_PACKET_LENGTH; 
     
     memcpy(packet->data_buffer, buffer, buffer_size);
     
-    packet_checksum_add(packet);
+    if (checksum) {
+        packet_checksum_add(packet);    
+    }    
     
-    debug_print("packet_data_set() succeed\n");
+    //packet_data_print(packet);
+    
+    success_print("packet_data_set() succeed\n");
     return RUDP_SOCKET_SUCCESS;
     
 failed:
-    debug_print("packet_data_set() failed\n");
+    error_print("packet_data_set() failed\n");
     return RUDP_SOCKET_ERROR;      
+}
+
+void packet_data_print(
+        packet_t* packet)
+{
+    if (packet && packet->data_buffer) {
+        printf("[PACKET:%d] ", packet->data_buffer_size);
+        for (uint32_t i=0; i<packet->data_buffer_size; i++) {
+            printf("%02X ", packet->data_buffer[i]);
+        }
+        printf("\n");
+    }
 }
 
 int32_t packet_header_set(
         socket_t* socket,
-        packet_t* packet)
+        packet_t* packet,
+        bool out)
 {
     debug_print("packet_header_set()\n");
         
     packet->header = (packet_header_t*) packet->buffer;
     packet->header->header_length = BASE_PACKET_LENGTH;
-    packet->header->acknowledge = socket->channel->acknowledge;
-    packet->header->sequence = socket->channel->sequence;
+    
+    if (out) {
+        packet->header->acknowledge = socket->channel->acknowledge;
+        packet->header->sequence = socket->channel->sequence;        
+    }
     
     switch(packet->type) {
     case PACKET_TYPE_ACK:
@@ -170,7 +251,7 @@ int32_t packet_header_set(
     
     packet_checksum_add(packet);    
     
-    debug_print("packet_header_set() succeed\n");
+    success_print("packet_header_set() succeed\n");
     return RUDP_SOCKET_SUCCESS;    
 }
 
@@ -181,7 +262,7 @@ int32_t packet_syn_header_set(
     debug_print("packet_syn_header_set()\n");        
     
     packet->syn_header = (packet_syn_header_t* ) 
-            packet->buffer + BASE_PACKET_LENGTH;
+            (packet->buffer + BASE_PACKET_LENGTH);
     
     if (packet->type == PACKET_TYPE_SYN) {                
         memcpy(packet->syn_header, socket->options->conn, 
@@ -196,18 +277,17 @@ int32_t packet_syn_header_set(
     else
         goto failed;
     
-    packet_checksum_add(packet);
+    packet_checksum_add(packet);    
 
-    debug_print("packet_syn_header_set() succeed\n");
+    success_print("packet_syn_header_set() succeed\n");
     return RUDP_SOCKET_SUCCESS;
     
 failed:
-    debug_print("packet_syn_header_set() failed\n");
+    error_print("packet_syn_header_set() failed\n");
     
     packet->syn_header = 0;
     return RUDP_SOCKET_ERROR;    
 }
-
 
 int32_t packet_free(
         packet_t* packet)
@@ -215,12 +295,19 @@ int32_t packet_free(
     if (packet) {
         if (packet->buffer) {
             free(packet->buffer);
+            packet->buffer = 0;
         }
                 
-        utimer_free(packet->timer_retrans);        
+        if (packet->timer_retrans) {
+            utimer_free(packet->timer_retrans);   
+            packet->timer_retrans = 0;
+        }
+        
+        packet->socket = 0;
         
         if (packet->ack) {
             packet_free(packet->ack);
+            packet->ack = 0;
         }
                     
         free(packet);
@@ -237,6 +324,9 @@ int32_t packet_checksum_add(
     case PACKET_TYPE_SYN_ACK:
         return (header->checksum = packet_checksum(
                 packet->buffer, SYN_PACKET_LENGTH));
+    case PACKET_TYPE_DATA:
+        return (header->checksum = packet_checksum(
+                packet->buffer, packet->buffer_size));    
     default:
         return (header->checksum = packet_checksum(
                 packet->buffer, BASE_PACKET_LENGTH));  
@@ -247,6 +337,8 @@ uint16_t packet_checksum(
         uint8_t* buffer, 
         uint32_t buffer_size)
 {
+    debug_print("packet_checksum()\n");
+    
     uint16_t* addr_ = (uint16_t*) buffer;
     uint16_t count_ = buffer_size;
     
@@ -275,7 +367,10 @@ uint16_t packet_checksum(
 bool packet_checksum_check(
         uint8_t* buffer, 
         uint32_t buffer_size)
-{      
+{   
+    debug_print("0x%08X == 0x%08X\n", ((uint16_t*) buffer)[1], 
+            packet_checksum(buffer, buffer_size));
+            
     return ((uint16_t*) buffer)[1] == 
             packet_checksum(buffer, buffer_size);
 }
@@ -293,15 +388,13 @@ packet_t* packet_buffered(
         goto failed; 
     }        
     
-    packet_t* new_packet = packet(type, socket);
+    packet_t* new_packet = packet(type, socket, false);
     
     if (!new_packet) { 
         goto failed; 
-    }
-        
-    packet_header_t *header = (packet_header_t*) buffer;
+    }                
     
-    memcpy(new_packet->header, header, BASE_PACKET_LENGTH);
+    memcpy(new_packet->header, buffer, BASE_PACKET_LENGTH);       
     
     if (type == PACKET_TYPE_SYN || type == PACKET_TYPE_SYN_ACK) {
                 
@@ -310,32 +403,29 @@ packet_t* packet_buffered(
             goto failed;            
         }
         
-        memcpy(new_packet->syn_header, 
-                (uint8_t*) header + BASE_PACKET_LENGTH, 
+        memcpy(new_packet->syn_header, buffer + BASE_PACKET_LENGTH, 
                 SYN_PACKET_HEADER_LENGTH);
     }
     
-    else if (type == PACKET_TYPE_DATA) {
-        new_packet->buffer_size = buffer_size;
-        new_packet->buffer = realloc(new_packet->buffer, new_packet->buffer_size);
-        
-        memcpy(new_packet->header + SYN_PACKET_LENGTH,
-                header + SYN_PACKET_LENGTH,
-                new_packet->buffer_size - SYN_PACKET_LENGTH);
+    else if (type == PACKET_TYPE_DATA) {        
+        packet_data_set(new_packet, buffer + BASE_PACKET_LENGTH, 
+                buffer_size - BASE_PACKET_LENGTH, false);        
     }
     
     if (!packet_checksum_check(buffer, buffer_size)) {
         goto failed;        
     }
        
-    debug_print("packet_buffered() succeed\n");
+    success_print("packet_buffered() succeed\n");
     return new_packet;
     
 failed:
-    if (new_packet) 
-        packet_free(new_packet);
+    if (new_packet) {
+        packet_free(new_packet); 
+        new_packet = 0;
+    }
         
-    debug_print("packet_buffered() failed\n");        
+    error_print("packet_buffered() failed\n");        
     return 0;
 }
 

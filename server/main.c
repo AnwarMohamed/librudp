@@ -7,25 +7,15 @@
 #define PORT    1337
 #define BACKLOG 100
 
-socket_t* server_socket = NULL;
 
-void handle_signal(int signal) {
-    //rudp_close(server_socket, true);
-    exit(0);
-}
+void* client_thread(void* socket);
 
 int main(int argc, char **argv)
 {        
-    struct sigaction sa;
-    memset(&sa, 0, sizeof(struct sigaction));
-    sa.sa_handler = &handle_signal;
-    sa.sa_flags = SA_RESTART;
-    
-    sigfillset(&sa.sa_mask);
-    
-    if (sigaction(SIGINT, &sa, 0) < 0) {
-        goto cleanup;
-    }
+
+    socket_t* server_socket;
+    socket_t* client_socket;
+    pthread_t client_tid;
     
     if (!(server_socket = rudp_socket(0))) {
         goto cleanup;
@@ -37,21 +27,19 @@ int main(int argc, char **argv)
     
     if (rudp_listen(server_socket, BACKLOG) < 0) {
         goto cleanup;
-    }
-    
-    socket_t* client_socket = NULL;;
+    }        
         
-    client_socket = rudp_accept(server_socket);
-    
-    if (!client_socket) {
-        goto cleanup; 
-    } else {
-        
-        printf("Accepted\n");
-        
+    while ((client_socket = rudp_accept(server_socket))) {
+        pthread_create(&client_tid, 0, client_thread, client_socket);
     }    
 
 cleanup:    
     rudp_close(server_socket, 0);    
     return 0;
 }
+
+void* client_thread(void* socket)
+{
+   
+   pthread_exit(0);
+}     

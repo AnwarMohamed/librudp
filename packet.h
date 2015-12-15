@@ -23,7 +23,7 @@
 #include "utils.h"
 #include "channel.h"
 
-packet_t* packet(packet_type_t type, socket_t* socket);
+packet_t* packet(packet_type_t type, socket_t* socket, bool out);
         
 int32_t packet_free(packet_t* packet);
 
@@ -31,7 +31,7 @@ int32_t packet_checksum_add(packet_t* packet);
 bool packet_checksum_check(uint8_t* buffer, uint32_t buffer_size);
 uint16_t packet_checksum(uint8_t* buffer, uint32_t buffer_size);
 
-int32_t packet_header_set(socket_t* socket, packet_t* packet);
+int32_t packet_header_set(socket_t* socket, packet_t* packet, bool out);
 
 int32_t packet_syn_header_set(socket_t* socket, 
         packet_t* packet);
@@ -43,7 +43,8 @@ packet_t* packet_buffered(socket_t* socket,
         uint8_t* buffer, uint32_t buffer_size);
         
 int32_t packet_data_set(packet_t* packet, 
-        uint8_t* buffer, uint32_t buffer_size);
+        uint8_t* buffer, uint32_t buffer_size, bool checksum);
         
 void packet_timeout(utimer_t* timer);
-void packet_print(packet_t* packet);        
+void packet_print(packet_t* packet);
+void packet_data_print(packet_t* packet);

@@ -76,3 +76,6 @@ int32_t channel_recv_tcs_ack(
         socket_t* socket, packet_t* packet);
         
 int32_t channel_handshake_start(socket_t* socket);
+
+
+void channel_timeout(socket_t* socket);

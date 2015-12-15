@@ -47,10 +47,19 @@ uint32_t rudp_sequence(
 
 void utimer_free(
         utimer_t* utimer)
-{
-    if (utimer) {
+{    
+    if (utimer) {        
+        debug_print("utimer_free(): %p\n", utimer);
+        
+        utimer_set(utimer, 0);
+        
         timer_delete(utimer->timer);
+        utimer->timer = 0;
+        
         free(utimer->event);
+        utimer->event = 0;
+        
+        utimer->packet = 0;        
         free(utimer);
     }
 }
@@ -74,6 +83,8 @@ utimer_t* utimer(
 
     timer_create(CLOCK_REALTIME, new_timer->event, &new_timer->timer);    
     
+    debug_print("utimer(): %p\n", new_timer);
+    
     return new_timer;
 }
 
@@ -81,12 +92,16 @@ void utimer_set(
         utimer_t* utimer,
         uint32_t interval)
 {
-    utimer->timer_value.it_value.tv_sec = interval/1000;
-    utimer->timer_value.it_value.tv_nsec = (interval % 1000) * 1000;
-    utimer->timer_value.it_interval.tv_sec = interval/1000;
-    utimer->timer_value.it_interval.tv_nsec = (interval % 1000) * 1000;
-    
-    if (timer_settime(utimer->timer, 0, &utimer->timer_value, 0) < 0) {
-        debug_print("rudp_timer_set() failed\n");
+    if (utimer) {
+        debug_print("utimer_set(): %p\n", utimer);
+        
+        utimer->timer_value.it_value.tv_sec = interval/1000;
+        utimer->timer_value.it_value.tv_nsec = (interval % 1000) * 1000;
+        utimer->timer_value.it_interval.tv_sec = interval/1000;
+        utimer->timer_value.it_interval.tv_nsec = (interval % 1000) * 1000;
+        
+        if (timer_settime(utimer->timer, 0, &utimer->timer_value, 0) < 0) {
+            error_print("rudp_timer_set() failed\n");
+        }        
     }
 }

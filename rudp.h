@@ -57,39 +57,46 @@ struct socket_peer_options_t {
     uint16_t max_segment_size;
 };
 
+enum window_type_t {
+    WINDOW_TYPE_SNW=0,
+    WINDOW_TYPE_GBN,
+    WINDOW_TYPE_SR,
+};
+
+struct window_t {
+    queue_t* buffer;    
+    pthread_mutex_t lock;
+    uint8_t size;
+    uint8_t max_size;
+    
+    queue_node_t* head;
+    queue_node_t* tail;
+    
+    enum window_type_t type;
+    
+    bool autocommit;
+};
+
+typedef struct window_t window_t;
+typedef enum window_type_t window_type_t;
+
 struct socket_options_t {
     bool internal;
     struct socket_t* parent;
     
     sem_t state_lock;
-    enum socket_state_t state;    
-    struct socket_conn_options_t* conn; 
-    struct socket_peer_options_t* peer;   
+    enum socket_state_t state; 
+   
+    struct packet_syn_header_t* conn; 
+    struct socket_peer_options_t* peer;
+
+    enum window_type_t window_type;
 };
 
 struct hash_node_t {
     struct sockaddr_in key;
     struct socket_t* value;
     UT_hash_handle hh;
-};
-
-struct socket_conn_options_t {
-    uint8_t version;    
-    uint8_t option_flags;
-    
-    uint16_t timeout_retransmission;
-    uint16_t timeout_cum_ack;
-    uint16_t timeout_trans_state;
-    uint16_t timeout_null;
-
-    uint16_t max_segment_size;
-    uint8_t max_window_size;
-    uint8_t max_retransmissions;
-    uint8_t max_cum_ack;
-    uint8_t max_out_sequences;
-    uint8_t max_auto_reset;
-
-    uint32_t identifier;
 };
 
 struct socket_t {
@@ -113,23 +120,7 @@ struct socket_t {
     uint32_t temp_buffer_size;
 };
 
-struct window_t {
-    queue_t* buffer;
-    uint8_t size;
-    uint8_t max_size;
-    
-    queue_node_t* head;
-    queue_node_t* tail;
-};
 
-enum window_type_t {
-    WINDOWS_TYPE_SNW=0,
-    WINDOWS_TYPE_GBN,
-    WINDOWS_TYPE_SR,
-};
-
-typedef struct window_t window_t;
-typedef enum window_type_t window_type_t;
 
 enum timer_type_t {
     TIMER_RETRANS=0,
@@ -156,20 +147,18 @@ struct channel_t{
     uint32_t sequence;
     
     window_t* in_window;
-    window_t* out_window;
+    window_t* out_window;        
 };
 
 typedef enum socket_state_t socket_state_t;
 typedef struct socket_t socket_t;
-typedef struct socket_options_t socket_options_t;
 
 typedef enum timer_type_t timer_type_t;
 
 typedef struct hash_node_t hash_node_t;
-typedef struct socket_conn_options_t socket_conn_options_t;
+typedef struct packet_syn_header_t socket_conn_options_t;
 typedef struct socket_peer_options_t socket_peer_options_t;
 
-typedef struct socket_t socket_t;
 typedef struct socket_options_t socket_options_t;
 typedef struct packet_t packet_t;
 typedef struct hash_node_t hash_node_t;
@@ -190,12 +179,13 @@ struct packet_header_t {
 struct packet_syn_header_t {
     uint8_t version;    
     uint8_t option_flags;
-
-    uint16_t max_segment_size;
+    
     uint16_t timeout_retransmission;
     uint16_t timeout_cum_ack;
     uint16_t timeout_trans_state;
     uint16_t timeout_null;
+    
+    uint16_t max_segment_size;    
 
     uint8_t max_window_size;
     uint8_t max_retransmissions;

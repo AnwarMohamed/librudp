@@ -21,6 +21,7 @@
 #pragma once
 #include <stdint.h>
 #include <stdlib.h>
+#include <pthread.h>
 #include <semaphore.h>
 #include <stdbool.h>
 
@@ -30,10 +31,15 @@ struct linkedlist_node_t {
     linkedlist_node_t* prev;
     linkedlist_node_t* next;
     void* data;    
+    pthread_mutex_t lock;
 };
 
 typedef struct {
-    uint32_t size;    
+    uint32_t size;
+    sem_t size_lock;
+    
+    pthread_mutex_t lock;
+    
     linkedlist_node_t* head;
     linkedlist_node_t* tail;    
 } linkedlist_t;
@@ -42,12 +48,16 @@ linkedlist_t* linkedlist();
 void linkedlist_free(linkedlist_t* llist, bool free_data);
 
 linkedlist_node_t* linkedlist_node(void* data);
+void linkedlist_node_free(linkedlist_node_t* node);
 
 linkedlist_node_t* linkedlist_insert_head(linkedlist_t* llist, void* data);
 linkedlist_node_t* linkedlist_insert_tail(linkedlist_t* llist, void* data);
 
-linkedlist_node_t* linkedlist_remove_head(linkedlist_t* llist);
-linkedlist_node_t* linkedlist_remove_tail(linkedlist_t* llist);
+linkedlist_node_t* linkedlist_remove_head(linkedlist_t* llist, bool blocking);
+linkedlist_node_t* linkedlist_remove_tail(linkedlist_t* llist, bool blocking);
 
 uint8_t linkedlist_empty(linkedlist_t* llist);
 uint32_t linkedlist_size(linkedlist_t* llist);
+
+linkedlist_node_t* linkedlist_tail(linkedlist_t* list);
+linkedlist_node_t* linkedlist_head(linkedlist_t* list);

@@ -21,8 +21,7 @@ socket_t* rudp_socket(
     if (options) {
         new_socket->options = options;
     } else {              
-        new_socket->options = socket_options();
-        sem_init(&new_socket->options->state_lock, 0, 0);        
+        new_socket->options = socket_options();                
     }
     
     if (!new_socket->options) {
@@ -50,11 +49,11 @@ socket_t* rudp_socket(
     }
      */
 
-    debug_print("rudp_socket() succeed\n");
+    success_print("rudp_socket() succeed\n");
     return new_socket;
     
 failed:
-    debug_print("rudp_socket() failed\n");
+    error_print("rudp_socket() failed\n");
     rudp_close(new_socket, false);
     return 0;
 }
@@ -68,19 +67,24 @@ socket_options_t* socket_options()
             calloc(1, sizeof(socket_conn_options_t));                
     
     options->conn->version = 1;    
+    options->conn->identifier = rudp_random();
+    
     options->conn->max_segment_size = 1024;
-    options->conn->max_retransmissions = 2;
-    options->conn->max_window_size = 32;
+    options->conn->max_retransmissions = 2;    
     options->conn->max_cum_ack = 3;
     options->conn->max_out_sequences = 3;
     options->conn->max_auto_reset = 3;
-    options->conn->timeout_retransmission = 600;
+    
+    options->conn->timeout_retransmission = 1000;
     options->conn->timeout_cum_ack = 300;
     options->conn->timeout_null = 2000;
     options->conn->timeout_trans_state = 1000;
-    options->conn->identifier = rudp_random();
+    
+    options->conn->max_window_size = 32;
+    options->window_type = WINDOW_TYPE_SNW;
     
     options->state = STATE_CLOSED;
+    sem_init(&options->state_lock, 0, 0);
     
     options->peer = (socket_peer_options_t*) 
             calloc(1, sizeof(socket_peer_options_t));
@@ -109,11 +113,11 @@ socket_t* socket_linux(
         goto failed;    
     }
     
-    debug_print("socket_linux() succeed\n");
+    success_print("socket_linux() succeed\n");
     return new_socket;
     
 failed:
-    debug_print("socket_linux() failed\n");
+    error_print("socket_linux() failed\n");
     rudp_close(new_socket, true);
     return 0;    
 }
@@ -123,11 +127,13 @@ void socket_options_free(
 {
     if (options) {            
         if (options->conn) {
-            free(options->conn);                
+            free(options->conn);
+            options->conn = 0;                
         }
             
         if (options->peer) {
-            free(options->peer);                 
+            free(options->peer); 
+            options->peer = 0;
         }
         
         free(options);
@@ -139,7 +145,7 @@ void socket_queue_free(queue_t* queue) {
         
         queue_node_t* node;
         while (queue_size(queue)) {
-            node = queue_dequeue(queue);
+            node = queue_dequeue(queue, false);
             
             packet_free(node->data);            
             free(node);
@@ -171,6 +177,7 @@ int32_t rudp_close(
         if (socket->thread) {
             //if (immediately)
                 pthread_kill(socket->thread, SIGINT);
+                socket->thread = 0;
             //else
             //    pthread_join(socket->thread, 0);
         }
@@ -178,56 +185,68 @@ int32_t rudp_close(
         if (socket->options) {
             if (!socket->options->internal) {
                 if (socket->socket_fd) {
-                    close(socket->socket_fd);                
+                    close(socket->socket_fd);  
+                    socket->socket_fd = 0;
                 }
             }
             
-            socket->options->state = STATE_CLOSED; 
-            sem_destroy(&socket->options->state_lock);        
+            socket->options->state = STATE_CLOSED;
+ 
+            sem_destroy(&socket->options->state_lock);
+            memset(&socket->options->state_lock, 0, sizeof(sem_t));
         
-            socket_options_free(socket->options);            
+            socket_options_free(socket->options);  
+            socket->options = 0;
         }                                    
                 
-        socket_queue_free(socket->ready_queue);
+        if (socket->ready_queue) {
+            socket_queue_free(socket->ready_queue);
+            socket->ready_queue = 0;
+        }
 
         //socket_hash_free(socket->established_hash);
         //socket_hash_free(socket->waiting_hash);            
         
-        channel_free(socket);
+        if (socket->channel) {
+            channel_free(socket);
+            socket->channel = 0;
+        }
         
         if (socket->temp_buffer) {
             free(socket->temp_buffer);
+            socket->temp_buffer = 0;
+            socket->temp_buffer_size = 0;
         }
         
-        free(socket);        
+        free(socket);
     }
     
+    success_print("rudp_close() succeed\n");
     return RUDP_SOCKET_SUCCESS;
 }
 
-/*
 int32_t rudp_recv(
-        rudp_socket_t* socket,
+        socket_t* socket,
         uint8_t* buffer, 
         uint32_t buffer_size)
 {
     if (socket->options->state != STATE_ESTABLISHED)
         return RUDP_SOCKET_ERROR;
         
-    return rudp_channel_recv(socket, buffer, buffer_size);
+    return channel_recv(socket, buffer, buffer_size);
 }
 
 int32_t rudp_send(
-        rudp_socket_t* socket,
+        socket_t* socket,
         uint8_t* buffer, 
         uint32_t buffer_size)
 {
     if (socket->options->state != STATE_ESTABLISHED)
         return RUDP_SOCKET_ERROR;
-        
-    return rudp_channel_send(socket, buffer, buffer_size);
+            
+    return channel_send(socket, buffer, buffer_size);
 }
-*/
+
 
 int32_t rudp_connect(
         socket_t* socket, 
@@ -282,11 +301,11 @@ int32_t rudp_connect(
         goto failed;                    
     }
 
-    debug_print("rudp_connect() succeed\n");
+    success_print("rudp_connect() succeed\n");
     return RUDP_SOCKET_SUCCESS;  
     
 failed:
-    debug_print("rudp_connect() failed\n");
+    error_print("rudp_connect() failed\n");
     socket->options->state = STATE_CLOSED;
     return RUDP_SOCKET_ERROR;           
 }
@@ -319,7 +338,7 @@ int32_t rudp_bind(
             sizeof(socket->local_addr));
 
 failed:
-    debug_print("rudp_bind() failed\n");
+    error_print("rudp_bind() failed\n");
     return RUDP_SOCKET_ERROR;
 }
 
@@ -343,11 +362,11 @@ int32_t rudp_listen(
         goto failed;                 
     }
     
-    debug_print("rudp_listen() succeed\n");
+    success_print("rudp_listen() succeed\n");
     return RUDP_SOCKET_SUCCESS;
     
 failed:
-    debug_print("rudp_listen() failed\n");
+    error_print("rudp_listen() failed\n");
     socket->options->state = STATE_CLOSED;
     return RUDP_SOCKET_ERROR;
 }
@@ -383,13 +402,13 @@ void* socket_listen_handler(
         }
     }
     
-    debug_print("socket_listen_handler() succeed\n");
-    pthread_exit(0);    
+    success_print("socket_listen_handler() succeed\n");
+    //pthread_exit(0);    
     return 0;
     
 failed:
-    debug_print("socket_listen_handler() failed\n");
-    pthread_exit(0);        
+    error_print("socket_listen_handler() failed\n");
+    //pthread_exit(0);        
     return 0;
     
 }
@@ -420,11 +439,11 @@ int32_t socket_recv_handler(
         goto failed;
     }
     
-    debug_print("socket_recv_handler() succeed\n");
+    success_print("socket_recv_handler() succeed\n");
     return RUDP_SOCKET_SUCCESS;
     
 failed:
-    debug_print("socket_recv_handler() failed\n");    
+    error_print("socket_recv_handler() failed\n");    
     return RUDP_SOCKET_ERROR;      
 }
 
@@ -466,20 +485,19 @@ void* socket_connect_handler(
         }
     } 
 
-succeed:
-    debug_print("socket_connect_handler() succeed\n");
+    
     
     client_socket->options->state = STATE_CLOSED;
-    sem_post(&client_socket->options->state_lock);
-    pthread_exit(0);    
+    sem_post(&client_socket->options->state_lock); 
+    
+    success_print("socket_connect_handler() succeed\n");    
     return (void*) RUDP_SOCKET_SUCCESS;
-failed:
-    debug_print("socket_connect_handler() failed\n");
+
+failed:    
+    client_socket->options->state = STATE_CLOSED;
+    sem_post(&client_socket->options->state_lock); 
     
-    client_socket->options->state = STATE_CLOSED;        
-    sem_post(&client_socket->options->state_lock);
-    pthread_exit(0);
-    
+    error_print("socket_connect_handler() failed\n");
     return (void*) RUDP_SOCKET_ERROR;
 }
 
@@ -491,7 +509,7 @@ socket_t* rudp_accept(
     
     sem_wait(&socket->options->state_lock);
     
-    return (socket_t*) queue_dequeue(socket->ready_queue)->data;
+    return (socket_t*) queue_dequeue(socket->ready_queue, false)->data;
 }
 
 /*

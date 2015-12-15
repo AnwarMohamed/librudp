@@ -2,108 +2,219 @@
 
 linkedlist_t* linkedlist() 
 {
-    return (linkedlist_t*) calloc(1, sizeof(linkedlist_t));        
+    linkedlist_t* list = 
+            (linkedlist_t*) calloc(1, sizeof(linkedlist_t));
+    sem_init(&list->size_lock, 0, 0);
+    pthread_mutex_init(&list->lock, 0);
+    return list;
+}
+
+void linkedlist_node_free(
+        linkedlist_node_t* node)
+{
+    if (node) {
+        pthread_mutex_destroy(&node->lock);
+        free(node);
+    }
+}
+
+linkedlist_node_t* linkedlist_head(
+        linkedlist_t* list)
+{
+    if (!list) {
+        return 0;        
+    }
+    
+    linkedlist_node_t* head_node;
+    
+    pthread_mutex_lock(&list->lock);
+    head_node = list->head;
+    pthread_mutex_unlock(&list->lock);
+    
+    return head_node;
+}
+
+linkedlist_node_t* linkedlist_tail(
+        linkedlist_t* list)
+{
+    if (!list) {
+        return 0;        
+    }
+    
+    linkedlist_node_t* tail_node;
+    
+    pthread_mutex_lock(&list->lock);
+    tail_node = list->tail;
+    pthread_mutex_unlock(&list->lock);
+    
+    return tail_node;
 }
 
 linkedlist_node_t* linkedlist_node(
         void* data) 
 {
     linkedlist_node_t* llist_node = calloc(1, sizeof(linkedlist_node_t));
+    pthread_mutex_init(&llist_node->lock, 0);
     llist_node->data = data;
 }
 
 linkedlist_node_t* linkedlist_insert_head(
-        linkedlist_t* llist, 
+        linkedlist_t* list, 
         void* data)
 {
-    if (!llist)
-        return NULL;
+    if (!list)
+        return 0;            
     
-    linkedlist_node_t* llist_node = linkedlist_node(data);
-    llist_node->prev = NULL;
-    llist_node->next = llist->head;    
+    linkedlist_node_t* new_node = linkedlist_node(data);
     
-    if (llist->head)
-        llist->head->prev = llist_node;
+    pthread_mutex_lock(&list->lock);            
+    pthread_mutex_lock(&new_node->lock);
     
-    if (!llist->tail)
-        llist->tail = llist_node;
+    new_node->prev = 0;
+    new_node->next = list->head;
     
-    llist->head = llist_node;
-    llist->size++;
-        
-    return llist_node;
+    if (list->head) {
+        pthread_mutex_lock(&list->head->lock);
+        list->head->prev = new_node;        
+        pthread_mutex_unlock(&list->head->lock);
+    }
+    
+    if (!list->tail)
+        list->tail = new_node;
+    
+    list->head = new_node;
+    
+    list->size++;
+    sem_post(&list->size_lock);
+    
+    pthread_mutex_unlock(&new_node->lock);    
+    pthread_mutex_unlock(&list->lock);
+    return new_node;
 }
 
 linkedlist_node_t* linkedlist_insert_tail(
-        linkedlist_t* llist, 
+        linkedlist_t* list, 
         void* data)
 {
-    if (!llist)
-        return NULL;
+    if (!list)
+        return 0;
     
-    linkedlist_node_t* llist_node = linkedlist_node(data);
-    llist_node->prev = llist->tail;
-    llist_node->next = NULL;    
+    linkedlist_node_t* new_node = linkedlist_node(data);
     
-    if (llist->tail)
-        llist->tail->next = llist_node;
+    pthread_mutex_lock(&list->lock);            
+    pthread_mutex_lock(&new_node->lock);
     
-    if (!llist->head)
-        llist->head = llist_node;
+    new_node->prev = list->tail;
+    new_node->next = 0;    
     
-    llist->tail = llist_node;
-    llist->size++;
-        
-    return llist_node;
+    if (list->tail) {
+        pthread_mutex_lock(&list->tail->lock);
+        list->tail->next = new_node;
+        pthread_mutex_unlock(&list->tail->lock);
+    }
+    
+    if (!list->head)
+        list->head = new_node;
+    
+    list->tail = new_node;
+    
+    list->size++;
+    sem_post(&list->size_lock);
+
+    pthread_mutex_unlock(&new_node->lock);    
+    pthread_mutex_unlock(&list->lock);    
+    return new_node;
 }
 
 linkedlist_node_t* linkedlist_remove_head(
-        linkedlist_t* llist)
+        linkedlist_t* list,
+        bool blocking)
 {
-    if (!llist)
-        return NULL;                
+    if (!list) {
+        return 0;                       
+    } 
     
-    linkedlist_node_t* llist_node = llist->head;    
-    llist->head = llist_node->next;
+    pthread_mutex_lock(&list->lock);  
     
-    if (llist->head) {
-        llist->head->prev = NULL;
-        
-        if (!llist->head->next)
-            llist->tail = NULL;
-            
+    if (blocking) {
+        sem_wait(&list->size_lock);
     } else {
-        llist->tail = NULL;
+        int value; 
+        sem_getvalue(&list->size_lock, &value);
+        
+        if (value) {
+            sem_wait(&list->size_lock);
+        }
     }
     
-    llist->size--;
+    if (!list->head) {
+        return 0;
+    }
     
-    return llist_node;
+    linkedlist_node_t* node = list->head;    
+    list->head = node->next;
+    
+    if (list->head) {
+        pthread_mutex_lock(&list->head->lock); 
+        
+        list->head->prev = 0;
+        
+        if (!list->head->next)
+            list->tail = 0;
+        
+        pthread_mutex_unlock(&list->head->lock);     
+    } else {
+        list->tail = 0;
+    }
+    
+    list->size--;            
+    
+    pthread_mutex_unlock(&list->lock);  
+    return node;
 }
 
 linkedlist_node_t* linkedlist_remove_tail(
-        linkedlist_t* llist)
+        linkedlist_t* list,
+        bool blocking)
 {
-    if (!llist)
-        return NULL;        
-    
-    linkedlist_node_t* llist_node = llist->tail;    
-    llist->tail = llist_node->prev;
-    
-    if (llist->tail) {
-        llist->head->next = NULL;
-        
-        if (!llist->head->prev)
-            llist->head = NULL;
-            
+    if (!list)
+        return 0;        
+
+    pthread_mutex_lock(&list->lock);
+
+    if (blocking) {
+        sem_wait(&list->size_lock);
     } else {
-        llist->head = NULL;
+        int value; 
+        sem_getvalue(&list->size_lock, &value);
+        
+        if (value) {
+            sem_wait(&list->size_lock);
+        }
     }
     
-    llist->size--;
+    if (!list->tail) {
+        return 0;
+    }
     
-    return llist_node;  
+    linkedlist_node_t* node = list->tail;    
+    list->tail = node->prev;
+    
+    if (list->tail) {
+        
+        list->head->next = 0;
+        
+        if (!list->head->prev)
+            list->head = 0;
+            
+    } else {
+        list->head = 0;
+    }
+    
+    list->size--;
+    
+    pthread_mutex_unlock(&list->lock);  
+    return node;  
 }
 
 uint8_t linkedlist_empty(
@@ -124,7 +235,7 @@ void linkedlist_free(
 {
     linkedlist_node_t* llist_node;
     while (linkedlist_size(llist)) {
-        llist_node = linkedlist_remove_tail(llist);
+        llist_node = linkedlist_remove_tail(llist, false);
         
         if (free_data && llist_node->data)
             free(llist_node->data);
@@ -132,5 +243,9 @@ void linkedlist_free(
         free(llist_node);
     }
         
+    sem_post(&llist->size_lock);
+    sem_destroy(&llist->size_lock);
+    
+    pthread_mutex_destroy(&llist->lock);
     free(llist);
 }
