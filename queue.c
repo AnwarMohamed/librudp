@@ -11,6 +11,14 @@ void queue_node_free(
     linkedlist_node_free(node);
 }
 
+queue_node_t* queue_enqueue_priority(
+        queue_t* queue,
+        void* data,
+        uint32_t priority)
+{
+    return linkedlist_insert_sorted(queue, data, priority);
+}
+
 void queue_lock(
         queue_t* queue)
 {
@@ -48,9 +56,10 @@ void queue_free(
 
 queue_node_t* queue_enqueue(
         queue_t* queue, 
-        void* data)
+        void* data,
+        uint32_t id)
 {    
-    return linkedlist_insert_tail(queue, data);
+    return linkedlist_insert_tail(queue, data, id);
 }
 
 queue_node_t* queue_dequeue(

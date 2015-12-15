@@ -31,6 +31,7 @@ struct linkedlist_node_t {
     linkedlist_node_t* prev;
     linkedlist_node_t* next;
     void* data;    
+    uint32_t id;
     pthread_mutex_t lock;
 };
 
@@ -47,11 +48,12 @@ typedef struct {
 linkedlist_t* linkedlist();
 void linkedlist_free(linkedlist_t* llist, bool free_data);
 
-linkedlist_node_t* linkedlist_node(void* data);
+linkedlist_node_t* linkedlist_node(void* data, uint32_t id);
 void linkedlist_node_free(linkedlist_node_t* node);
 
-linkedlist_node_t* linkedlist_insert_head(linkedlist_t* llist, void* data);
-linkedlist_node_t* linkedlist_insert_tail(linkedlist_t* llist, void* data);
+linkedlist_node_t* linkedlist_insert_head(linkedlist_t* llist, void* data, uint32_t id);
+linkedlist_node_t* linkedlist_insert_tail(linkedlist_t* llist, void* data, uint32_t id);
+linkedlist_node_t* linkedlist_insert_sorted(linkedlist_t* llist, void* data, uint32_t id);
 
 linkedlist_node_t* linkedlist_remove_head(linkedlist_t* llist, bool blocking);
 linkedlist_node_t* linkedlist_remove_tail(linkedlist_t* llist, bool blocking);

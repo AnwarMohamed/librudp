@@ -38,7 +38,27 @@ void window_in_enquque(
         window_t* window,
         packet_t* packet)
 {
+    debug_print("window_in_enquque()\n");
     
+    queue_enqueue_priority(window->buffer, packet, packet->header->sequence);
+    
+    if (window->autocommit) {
+        window_in_commit(window);        
+    }    
+    
+    success_print("window_in_enquque() succeed\n");
+}
+
+void window_in_commit(
+        window_t* window) 
+{
+    
+    //socket->channel->acknowledge = 
+    //        packet->header->sequence + packet->data_buffer_size;
+    //socket->channel->sequence = packet->header->acknowledge; 
+
+    //if (channel_send_ack(socket, packet) < 0)
+    //    goto failed;
 }
 
 packet_t* window_in_dequeue(
@@ -60,12 +80,12 @@ void window_out_enqueue(
 {   
     debug_print("window_out_enqueue()\n");
         
-    queue_enqueue(window->buffer, packet);
+    queue_enqueue(window->buffer, packet, packet->header->sequence);
     
     //printf("q=%d w=%d\n", window->buffer->size, window->size);
 
     if (window->autocommit) {
-        window_commit(window);        
+        window_out_commit(window);        
     }
 
     success_print("window_out_enqueue() succeed\n");
@@ -80,7 +100,8 @@ void window_autocommit_set(
     }
 }
 
-void window_commit(window_t* window) 
+void window_out_commit(
+        window_t* window) 
 {            
     debug_print("window_commit()\n");
     
@@ -249,12 +270,12 @@ void window_slide(
     }
     
     window_unlock(window);    
-    window_commit(window);    
+    window_out_commit(window);    
         
     success_print("window_slide() succeed\n");
 }
 
-bool window_ack_set(
+bool window_out_ack(
         window_t* window,
         packet_t* ack_packet)
 {   

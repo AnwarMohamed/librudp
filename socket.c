@@ -81,7 +81,7 @@ socket_options_t* socket_options()
     options->conn->timeout_trans_state = 1000;
     
     options->conn->max_window_size = 32;
-    options->window_type = WINDOW_TYPE_SNW;
+    options->window_type = WINDOW_TYPE_SR;
     
     options->state = STATE_CLOSED;
     sem_init(&options->state_lock, 0, 0);
@@ -468,11 +468,6 @@ void* socket_connect_handler(
         
         memset(client_socket->temp_buffer, 0, client_socket->temp_buffer_size);        
         
-        //buffer_size = recvfrom(client_socket->socket_fd, 
-        //        client_socket->temp_buffer, client_socket->temp_buffer_size, 0, 
-        //        (struct sockaddr *) &client_socket->remote_addr, 
-        //        &sockaddr_in_len);
-        
         buffer_size = recv(client_socket->socket_fd, 
                 client_socket->temp_buffer, client_socket->temp_buffer_size, 0);
         
@@ -486,16 +481,11 @@ void* socket_connect_handler(
     } 
 
     
-    
+failed:
     client_socket->options->state = STATE_CLOSED;
     sem_post(&client_socket->options->state_lock); 
     
-    success_print("socket_connect_handler() succeed\n");    
-    return (void*) RUDP_SOCKET_SUCCESS;
-
-failed:    
-    client_socket->options->state = STATE_CLOSED;
-    sem_post(&client_socket->options->state_lock); 
+    rudp_close(client_socket, false);
     
     error_print("socket_connect_handler() failed\n");
     return (void*) RUDP_SOCKET_ERROR;

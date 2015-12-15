@@ -29,10 +29,14 @@ int32_t window_free(window_t* window);
 
 queue_node_t* window_get(window_t* window, uint32_t index);
 void window_out_enqueue(window_t* window, packet_t* packet);
-void window_commit(window_t* window);
-bool window_ack_set(window_t* window, packet_t* ack_packet);
+void window_out_commit(window_t* window);
+bool window_out_ack(window_t* window, packet_t* ack_packet);
 
 packet_t* window_in_dequeue(window_t* window, bool blocking);
+void window_in_commit(window_t* window);
+void window_in_enquque(window_t* window, packet_t* packet);
 
 void window_lock(window_t* window);
 void window_unlock(window_t* window);
+
+void window_autocommit_set(window_t* window, bool autocommit);

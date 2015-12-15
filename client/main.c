@@ -32,11 +32,11 @@ int main(int argc, char **argv)
     uint32_t send_buffer_max_size = 
         socket->options->peer->max_segment_size - BASE_PACKET_LENGTH;
         
-    send_buffer_max_size *= 10000;
+    send_buffer_max_size *= 10;
     
     uint8_t* send_buffer = calloc(send_buffer_max_size, sizeof(uint8_t));
-    snprintf(send_buffer, socket->options->peer->max_segment_size, 
-            "PUT:%s:%d", FILENAME, file_fd);
+    snprintf((char*) send_buffer, socket->options->peer->max_segment_size, 
+            "PUT:%s:%d", FILENAME, file_size);
     
     uint32_t send_buffer_size = strlen((char*) send_buffer) + 1;
     

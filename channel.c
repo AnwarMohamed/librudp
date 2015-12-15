@@ -108,7 +108,7 @@ void channel_timer_handler(utimer_t* timer)
             //}
             
             if (timer->packet->needs_ack) {            
-                packet_timeout(timer);            
+                packet_timeout(timer);                
             } else {
                 utimer_set(timer, 0);
             }                
@@ -141,10 +141,7 @@ void channel_timeout(
     debug_print("channel_timeout()\n");
     
     if (socket) {
-        channel_free(socket);
-        socket->channel = 0;
-        
-        //rudp_close(socket, false);
+        rudp_close(socket, false);
     }
     
     success_print("channel_timeout() succeed\n");
@@ -225,7 +222,7 @@ int32_t channel_send(
             
     packet_t* data_packet;
     
-    //window_autocommit_set(socket->channel->out_window, false);
+    window_autocommit_set(socket->channel->out_window, false);
     
     for (uint32_t i= 0; i<segment_count; i++) {
         data_packet = packet(PACKET_TYPE_DATA, socket, true);
@@ -247,8 +244,8 @@ int32_t channel_send(
         socket->channel->sequence += data_packet->data_buffer_size;
     }
     
-    //window_commit(socket->channel->out_window);
-    //window_autocommit_set(socket->channel->out_window, true);
+    window_out_commit(socket->channel->out_window);
+    window_autocommit_set(socket->channel->out_window, true);
     
     return buffer_size;
 }
@@ -425,29 +422,24 @@ int32_t channel_recv_reset(
 {
 }
 
-int data_count = 0;
-
 int32_t channel_recv_data(
         socket_t* socket,
         packet_t* packet)
 {
     debug_print("channel_recv_data()\n");                
     
-    printf("data: %d\n", ++data_count);
-    
+    window_in_enquque(socket->channel->in_window, packet);    
+
+/*
     socket->channel->acknowledge = 
             packet->header->sequence + packet->data_buffer_size;
     socket->channel->sequence = packet->header->acknowledge; 
 
     if (channel_send_ack(socket, packet) < 0)
-        goto failed;
-
+        return -1;
+*/
     success_print("channel_recv_data() succeed\n");
-    return RUDP_SOCKET_SUCCESS; 
-    
-failed:    
-    error_print("channel_recv_data() failed\n");
-    return RUDP_SOCKET_ERROR;     
+    return RUDP_SOCKET_SUCCESS;   
 }
 
 int32_t channel_recv_null(
@@ -656,7 +648,7 @@ int32_t channel_recv_raw(
     
     switch(packet->type) {
     case PACKET_TYPE_ACK:
-        if (!window_ack_set(socket->channel->out_window, packet))
+        if (!window_out_ack(socket->channel->out_window, packet))
             goto failed;
             
         if (channel_recv_ack(socket, packet) < 0)
@@ -687,7 +679,7 @@ int32_t channel_recv_raw(
             goto failed;        
         break;
     case PACKET_TYPE_SYN_ACK:
-        if (!window_ack_set(socket->channel->out_window, packet))
+        if (!window_out_ack(socket->channel->out_window, packet))
             goto failed;
             
         if (channel_recv_syn_ack(socket, packet) < 0)
