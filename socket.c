@@ -36,18 +36,7 @@ socket_t* rudp_socket(
     
     if (!(new_socket->ready_queue = queue())) {
         goto failed;                
-    }
-    
-    /*
-    struct sigaction* sa = (struct sigaction*) calloc(1, sizeof(struct sigaction));
-    sigemptyset(&sa->sa_mask);
-    sa->sa_flags = SA_SIGINFO;
-    sa->sa_sigaction = rudp_timer_handler;
-    
-    if(sigaction(RUDP_SOCKET_SIGNAL, sa, 0) < 0) {
-        goto failed;            
-    }
-     */
+    }    
 
     success_print("rudp_socket() succeed\n");
     return new_socket;
@@ -76,8 +65,8 @@ socket_options_t* socket_options()
     options->conn->max_auto_reset = 3;
     
     options->conn->timeout_retransmission = 1000;
-    options->conn->timeout_cum_ack = 300;
-    options->conn->timeout_null = 2000;
+    options->conn->timeout_cum_ack = 500;
+    options->conn->timeout_null = 0;
     options->conn->timeout_trans_state = 1000;
     
     options->conn->max_window_size = 32;
@@ -188,6 +177,8 @@ int32_t rudp_close(
                     close(socket->socket_fd);  
                     socket->socket_fd = 0;
                 }
+            } else {
+                channel_deattach_node(socket);                                
             }
             
             socket->options->state = STATE_CLOSED;
@@ -422,15 +413,39 @@ int32_t socket_recv_handler(
     
     hash_node_t* hash_node;
     socket_t* new_socket;
-    
-    if ((hash_node = channel_waiting(socket)))
-        return channel_recv_raw(
-                hash_node->value, buffer, buffer_size);
-    
+        
     if ((hash_node = channel_established(socket)))
         return channel_recv_raw(
                 hash_node->value, buffer, buffer_size);
 
+    else if ((hash_node = channel_waiting(socket)))
+        return channel_recv_raw(
+                hash_node->value, buffer, buffer_size);
+
+    else if (queue_size(socket->ready_queue)) {
+        queue_node_t* node = socket->ready_queue->head;
+        socket_t* node_socket;
+        hash_node_t* node_hash;
+        
+        while (node) {
+            node_hash = node->data;
+            node_socket = node_hash->value;
+            printf("checking\n");
+            if (!memcmp(
+                    &socket->remote_addr, 
+                    &node_socket->remote_addr,
+                    sizeof(struct sockaddr_in))) {
+                return channel_recv_raw(node_socket, buffer, buffer_size);
+            }
+            
+            node = node->next;
+        }
+    }
+    
+    if (packet_type_check(buffer, buffer_size) != PACKET_TYPE_SYN) {
+        goto failed;
+    }
+    
     if (!(new_socket = channel(socket))) {
         goto failed;
     }
@@ -496,10 +511,16 @@ socket_t* rudp_accept(
 {
     if (!socket || socket->options->state != STATE_LISTEN)
         return 0;        
-    
+        
     sem_wait(&socket->options->state_lock);
     
-    return (socket_t*) queue_dequeue(socket->ready_queue, false)->data;
+    hash_node_t* accept_node = 
+            queue_dequeue(socket->ready_queue, true)->data;       
+    
+    HASH_ADD(hh, socket->established_hash, key, 
+            sizeof(struct sockaddr_in), accept_node);
+    
+    return (socket_t*) accept_node->value;
 }
 
 /*

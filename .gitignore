@@ -41,7 +41,3 @@ build
 rudp-server
 rudp-client
 
-Makefile
-*.mk
-*.txt
-clean.sh

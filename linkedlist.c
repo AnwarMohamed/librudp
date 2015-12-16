@@ -316,3 +316,25 @@ linkedlist_node_t* linkedlist_insert_sorted(
     pthread_mutex_unlock(&list->lock);  
     return new_node;  
 }
+
+uint32_t linkedlist_node_count(
+        linkedlist_node_t* head,
+        linkedlist_node_t* tail)
+{
+    if (!head || !tail) {
+        return 0;
+    }
+    
+    uint32_t count = 0;
+    
+    while (head && head != tail) {        
+        head = head->next;
+        count++;
+    }
+    
+    if (head == tail) {
+        return count++;
+    } else {
+        return 0;
+    }
+}

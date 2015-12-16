@@ -74,7 +74,7 @@ void packet_print(packet_t* packet) {
         COLOR_RED "chk: " COLOR_RESET "0x%04X "
         
         "%s"
-        " %d.%d.%d.%d"
+        "\t%d.%d.%d.%d"
         COLOR_RESET        
         ":"         
         "%s"

@@ -26,6 +26,21 @@
 #include "uthash/src/uthash.h"
 
 
+#define COLOR_RED       "\x1b[0;31m"
+#define COLOR_RED_B     "\x1b[1;31m"
+#define COLOR_GREEN     "\x1b[0;32m"
+#define COLOR_GREEN_B   "\x1b[1;32m"
+#define COLOR_YELLOW    "\x1b[0;33m"
+#define COLOR_YELLOW_B  "\x1b[1;33m"
+#define COLOR_BLUE      "\x1b[0;34m"
+#define COLOR_BLUE_B    "\x1b[1;34m"
+#define COLOR_MAGENTA   "\x1b[0;35m"
+#define COLOR_MAGENTA_B "\x1b[1;35m"
+#define COLOR_CYAN      "\x1b[0;36m"
+#define COLOR_CYAN_B      "\x1b[1;36m"
+#define COLOR_RESET     "\x1b[0m"
+
+
 #define RUDP_SOCKET_ERROR         -1
 #define RUDP_SOCKET_SUCCESS        0
 #define RUDP_SOCKET_ACCEPT_SLEEP   5
@@ -75,6 +90,7 @@ struct window_t {
     enum window_type_t type;
     
     bool autocommit;
+    sem_t available;
 };
 
 typedef struct window_t window_t;

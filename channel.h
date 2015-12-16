@@ -79,3 +79,4 @@ int32_t channel_handshake_start(socket_t* socket);
 
 
 void channel_timeout(socket_t* socket);
+int32_t channel_send_ack(socket_t* socket, packet_t* recv_packet);

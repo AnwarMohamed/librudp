@@ -40,3 +40,5 @@ void window_lock(window_t* window);
 void window_unlock(window_t* window);
 
 void window_autocommit_set(window_t* window, bool autocommit);
+void window_max_size_set(window_t* window, uint8_t max_size);
+bool window_sequenced(window_t* window, queue_node_t* prev_node, queue_node_t* node);

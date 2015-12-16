@@ -14,6 +14,7 @@ window_t* window(
     new_window->autocommit = true;
     
     pthread_mutex_init(&new_window->lock, 0);
+    sem_init(&new_window->available, 0, 0);
     
     if (type == WINDOW_TYPE_SNW) {
         new_window->max_size = 1;
@@ -40,11 +41,19 @@ void window_in_enquque(
 {
     debug_print("window_in_enquque()\n");
     
-    queue_enqueue_priority(window->buffer, packet, packet->header->sequence);
+    queue_node_t* new_node = queue_enqueue_priority(
+            window->buffer, packet, packet->header->sequence);    
+    
+    //channel_send_ack(packet->socket, packet);
     
     if (window->autocommit) {
         window_in_commit(window);        
-    }    
+    }
+    
+    if (window->size) {     
+        //utimer_set(packet->socket->channel->timer_cum_ack,
+        //        packet->socket->options->conn->timeout_cum_ack);    
+    }
     
     success_print("window_in_enquque() succeed\n");
 }
@@ -52,6 +61,97 @@ void window_in_enquque(
 void window_in_commit(
         window_t* window) 
 {
+    debug_print("window_in_commit()\n");
+    
+    window_lock(window);
+    
+    if (!window->buffer->size) {
+        window->size = 0;
+        window->head = 0;
+        window->tail = 0;
+    } else {
+        
+        if (!window->head) {
+            window->head = queue_head(window->buffer);            
+        }                            
+        
+        packet_t* packet;
+        
+        while (window->head->next) {
+            packet = window->head->data;
+            
+            //printf("%08X == %08X, %08X == %08X\n",
+            //packet->header->sequence, packet->socket->channel->acknowledge,
+            //packet->header->acknowledge, packet->socket->channel->sequence +1);
+            
+            if (packet->header->sequence == packet->socket->channel->acknowledge &&
+                packet->header->acknowledge == packet->socket->channel->sequence /*+
+                        (packet->socket->options->state == STATE_ESTABLISHED? 1:0)*/) {
+                
+                packet->socket->channel->acknowledge += packet->data_buffer_size;
+                    
+                //packet->socket->channel->acknowledge = 
+                //    packet->header->sequence + packet->data_buffer_size;
+                //packet->socket->channel->sequence = packet->header->acknowledge;                 
+
+                channel_send_ack(packet->socket, packet);
+       
+                window->head = window->head->next;
+            } else {
+                goto cleanup;
+            }                    
+        }
+        
+        if (window->head) {
+            packet = window->head->data;
+
+            //printf("%08X == %08X, %08X == %08X\n",
+            //packet->header->sequence, packet->socket->channel->acknowledge,
+            //packet->header->acknowledge, packet->socket->channel->sequence +1);
+            
+            if (packet->header->sequence == packet->socket->channel->acknowledge &&
+                packet->header->acknowledge == packet->socket->channel->sequence /*+ 
+                        (packet->socket->options->state == STATE_ESTABLISHED? 1:0)*/) {
+                
+                packet->socket->channel->acknowledge += packet->data_buffer_size;
+                //packet->socket->channel->sequence = packet->header->acknowledge;                 
+
+                channel_send_ack(packet->socket, packet);
+                sem_post(&window->available);
+       
+                window->head = window->head->next;
+            } else {
+                
+            }  
+        }
+    }
+/*        
+        queue_node_t* node = window->head;
+        packet_t* packet;
+        
+        uint32_t current_size = 0;
+        while (node && current_size++ < window->size) {
+            window->tail = node;
+            packet = node->data;
+            
+            if (!packet->ack || !packet->ack->transmission_time &&
+                    window_sequenced(window, node->prev, node)) {
+                        
+                printf("seq:%08X == %08X, ack:%08X == %08X\n",
+                        packet->socket->channel->sequence,
+                        packet->header->sequence,
+                        packet->socket->channel->acknowledge,
+                        packet->header->acknowledge);
+                        
+                channel_send_ack(packet->socket, packet);
+            }
+            
+            node = node->next;
+        }        
+    }
+
+    window_unlock(window);        
+    success_print("window_in_commit() succeed\n"); 
     
     //socket->channel->acknowledge = 
     //        packet->header->sequence + packet->data_buffer_size;
@@ -59,12 +159,49 @@ void window_in_commit(
 
     //if (channel_send_ack(socket, packet) < 0)
     //    goto failed;
+     * */
+     
+cleanup:     
+    window_unlock(window);        
+    success_print("window_in_commit() succeed\n");      
+}
+
+bool window_sequenced(
+        window_t* window,
+        queue_node_t* prev_node,
+        queue_node_t* node)        
+{
+    if (!window || !node) {
+        return false;
+    }
+    
+    packet_t* packet = node->data;
+    packet_t* prev_packet;
+    
+    if (prev_node) {    
+        prev_packet = prev_node->data;
+
+        if (packet->header->sequence != 
+                prev_packet->header->sequence + 
+                prev_packet->data_buffer_size) {
+            return false;
+        }
+
+    } else {    
+        if (packet->header->acknowledge != 
+                packet->socket->channel->sequence) {
+            return false;
+        }    
+    }
+    
+    return true;
 }
 
 packet_t* window_in_dequeue(
         window_t* window,
         bool blocking)
 {
+    sem_wait(&window->available);    
     queue_node_t* node = queue_dequeue(window->buffer, blocking);
     
     if (node) {
@@ -103,7 +240,7 @@ void window_autocommit_set(
 void window_out_commit(
         window_t* window) 
 {            
-    debug_print("window_commit()\n");
+    debug_print("window_out_commit()\n");
     
     window_lock(window);
     
@@ -114,7 +251,7 @@ void window_out_commit(
     } else {
         
         window->size = MIN(window->max_size, window->buffer->size);            
-        window->head = window->buffer->head;        
+        window->head = queue_head(window->buffer);
         window->tail = window_get(window, window->size-1);                
         
         //printf("head: %p, tail: %p\n", window->head, window->tail);
@@ -144,7 +281,7 @@ void window_out_commit(
     }
 
     window_unlock(window);
-    success_print("window_commit() succeed\n");     
+    success_print("window_out_commit() succeed\n");     
 }
 
 bool packet_ack_valid(
@@ -196,7 +333,7 @@ queue_node_t* window_get(
     
     //printf("check\n");
     
-    queue_node_t* node = window->buffer->head;
+    queue_node_t* node = queue_head(window->buffer);
     uint32_t node_count = 0;
     
     while (node_count++ < (index-1)) {
@@ -251,7 +388,7 @@ void window_slide(
     window_lock(window);
     
     while (window->buffer->size > 0) {
-        node = window->buffer->head;
+        node = queue_head(window->buffer);
         packet = node->data;
         
         if (!packet->needs_ack && packet->transmission_time) {
@@ -299,7 +436,7 @@ bool window_out_ack(
             packet->needs_ack = false;
             utimer_set(packet->timer_retrans, 0);
             
-            if (window->buffer->head == node) {
+            if (queue_head(window->buffer)== node) {
                 window_slide(window);                
             }
             
@@ -341,6 +478,9 @@ int32_t window_free(
             queue_free(window->buffer, true);            
             window->buffer = 0;
         }
+        
+        sem_post(&window->available);
+        sem_destroy(&window->available);
         
         pthread_mutex_unlock(&window->lock);
         pthread_mutex_destroy(&window->lock);
